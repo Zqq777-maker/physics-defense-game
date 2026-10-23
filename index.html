@@ -4,13 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>PvZ 物理防御战</title>
-<!-- 已替换为国内镜像 CDN -->
 <script src="https://cdn.jsdelivr.net.cn/npm/@supabase/supabase-js@2"></script>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; user-select: none; }
   body { margin: 0; background: #2c3e20; color: #333; display: flex; justify-content: center; min-height: 100vh; }
   
-  /* 登录界面 */
   #loginScreen { position: fixed; inset: 0; background: rgba(15, 25, 10, 0.95); z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
   .login-box { background: #7b5b3f; border: 8px solid #5c402b; border-radius: 20px; padding: 30px; text-align: center; width: 90%; max-width: 340px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
   .login-box h2 { margin: 0 0 20px; color: #ffd166; text-shadow: 2px 2px 0 #3a2210; }
@@ -18,7 +16,6 @@
   .login-btn { width: 100%; padding: 14px; border: none; border-radius: 8px; background: #4caf50; color: #fff; font-size: 18px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 0 #2e7d32; }
   .login-btn:active { transform: translateY(4px); box-shadow: none; }
 
-  /* 主界面 */
   #gameScreen { display: none; width: 100%; max-width: 900px; padding: 10px; flex-direction: column; gap: 10px; background: #4e7c35; min-height: 100vh; }
   #gameScreen.active { display: flex; }
   
@@ -184,10 +181,11 @@
 </div>
 
 <script>
-/* ================= Supabase 初始化 ================= */
+/* ================= 防撞名初始化 ================= */
 const SUPABASE_URL = 'https://vpojsqmoxwyexainqizx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_TyhcbLf7tSwpqpuxvmzEpQ_L8xBDFv0';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// 将变量名改为 dbClient 避免和底层库的 window.supabase 冲突
+const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ================= 配置数据 ================= */
 const ROWS = 5, COLS = 9;
@@ -272,7 +270,7 @@ function enterGame() {
   $('gameScreen').classList.add('active');
   $('uiName').textContent = state.name; $('uiClass').textContent = state.class;
   
-  supabase.rpc('get_top_scores', { p_limit: 1000, p_offset: 0 }).then(({data}) => {
+  dbClient.rpc('get_top_scores', { p_limit: 1000, p_offset: 0 }).then(({data}) => {
     const me = data?.find(p => p.name === state.name && p.class === state.class);
     if (me) { state.score = me.score; $('uiScore').textContent = state.score; }
   });
@@ -285,7 +283,7 @@ function enterGame() {
 
 /* ================= 排行榜相关 ================= */
 async function fetchLeaderboard() {
-  const { data, error } = await supabase.rpc('get_top_scores', { p_limit: 20, p_offset: 0 });
+  const { data, error } = await dbClient.rpc('get_top_scores', { p_limit: 20, p_offset: 0 });
   if (error) return;
   const ul = $('leaderboard');
   ul.innerHTML = '';
@@ -299,7 +297,7 @@ async function fetchLeaderboard() {
 async function updateScore(addScore) {
   state.score += addScore;
   $('uiScore').textContent = state.score;
-  await supabase.rpc('submit_score', { p_name: state.name, p_class: state.class, p_score: state.score });
+  await dbClient.rpc('submit_score', { p_name: state.name, p_class: state.class, p_score: state.score });
 }
 
 /* ================= 答题系统 ================= */
@@ -657,7 +655,7 @@ async function gameOver(isWin) {
       options: q.options.join(' | '),
       correct_answer: q.answer.map(i => String.fromCharCode(65 + i)).join('')
     }));
-    await supabase.from('wrong_questions').insert(records);
+    await dbClient.from('wrong_questions').insert(records);
   }
 }
 
@@ -666,7 +664,7 @@ async function loadTeacherData() {
   const tbody = $('teacherDataBody');
   tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">正在加载数据...</td></tr>';
   
-  const { data, error } = await supabase
+  const { data, error } = await dbClient
     .from('wrong_questions')
     .select('*')
     .order('created_at', { ascending: false })
