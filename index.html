@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>PvZ 物理防御战</title>
+<!-- 已替换为国内镜像 CDN -->
 <script src="https://cdn.jsdelivr.net.cn/npm/@supabase/supabase-js@2"></script>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; user-select: none; }
@@ -79,13 +80,11 @@
   #leaderboard li:nth-child(2) { background: rgba(192,192,192,0.2); }
   #leaderboard li:nth-child(3) { background: rgba(205,127,50,0.2); }
 
-  /* 结算与错题面板 */
   #resultModal .quiz-card { max-width: 500px; }
   .wrong-q-item { background: #fff; border: 1px solid #ccc; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 14px;}
   .wrong-q-item img { max-width: 100%; max-height: 120px; margin: 8px 0; border-radius: 4px; }
   .wrong-q-title { font-weight: bold; margin-bottom: 6px; line-height: 1.4;}
   
-  /* 教师端界面 */
   #teacherScreen { display: none; width: 100%; max-width: 900px; padding: 20px; background: #fff; min-height: 100vh; flex-direction: column; }
   #teacherScreen.active { display: flex; }
   .teacher-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-bottom: 20px;}
@@ -96,7 +95,6 @@
 </head>
 <body>
 
-<!-- 登录界面 -->
 <div id="loginScreen">
   <div class="login-box">
     <h2>🌻 物理防御战 🌻</h2>
@@ -107,7 +105,6 @@
   </div>
 </div>
 
-<!-- 主游戏界面 -->
 <div id="gameScreen">
   <div class="top-bar">
     <div>👤 <span id="uiName"></span> (<span id="uiClass"></span>)</div>
@@ -138,7 +135,6 @@
   </div>
 </div>
 
-<!-- 答题弹窗 -->
 <div class="modal" id="quizModal">
   <div class="quiz-card">
     <div class="quiz-image-wrap"><img id="quizImage" src=""></div>
@@ -148,14 +144,12 @@
   </div>
 </div>
 
-<!-- 盲盒弹窗 -->
 <div class="blindbox-modal" id="blindboxModal">
   <div id="blindboxDisplay" class="box" onclick="openBlindbox()">🎁</div>
   <div id="rewardPlant" class="reward-plant" style="display:none;"></div>
   <div id="rewardText" class="reward-text" style="display:none;"></div>
 </div>
 
-<!-- 植物图鉴说明 -->
 <div class="modal" id="plantInfoModal">
   <div class="plant-info-card">
     <div style="font-size: 70px; margin-bottom: 10px;" id="infoEmoji"></div>
@@ -165,21 +159,15 @@
   </div>
 </div>
 
-<!-- 结算与错题回顾弹窗 -->
 <div class="modal" id="resultModal">
   <div class="quiz-card">
     <h2 id="resultTitle" style="text-align:center; color:#4caf50; margin-top:0;">游戏结束</h2>
     <div id="resultScore" style="text-align:center; font-size:20px; font-weight:bold; margin-bottom:15px;">最终得分: 0</div>
-    
-    <div id="wrongQuestionsArea" style="max-height: 50vh; overflow-y: auto;">
-      <!-- 错题动态渲染 -->
-    </div>
-    
+    <div id="wrongQuestionsArea" style="max-height: 50vh; overflow-y: auto;"></div>
     <button class="quiz-submit" onclick="location.reload()">返回主页</button>
   </div>
 </div>
 
-<!-- 教师端后台 -->
 <div id="teacherScreen">
   <div class="teacher-header">
     <h1>👨‍🏫 教师控制台 - 学生错题本</h1>
@@ -187,13 +175,7 @@
   </div>
   <table class="teacher-table">
     <thead>
-      <tr>
-        <th>时间</th>
-        <th>班级</th>
-        <th>姓名</th>
-        <th>错题题干</th>
-        <th>正确答案</th>
-      </tr>
+      <tr><th>时间</th><th>班级</th><th>姓名</th><th>错题题干</th><th>正确答案</th></tr>
     </thead>
     <tbody id="teacherDataBody">
       <tr><td colspan="5" style="text-align:center;">正在加载数据...</td></tr>
@@ -218,7 +200,6 @@ const PLANT_TYPES = {
   cannon:     { name: '加农炮',   emoji: '💥', cooldown: 10.0, dmg: 100, hp: 1, desc: '终极武器。每隔 10 秒发射一发炮弹，对该行最前方的僵尸造成 100 点毁灭性伤害。' }
 };
 
-// 新增血量为300和400的强力僵尸，初始速度提升至 0.3
 const ZOMBIE_TYPES = {
   normal: { name: '普通僵尸', emoji: '🧟‍♂️', hp: 100, speed: 0.3 },
   cone:   { name: '路障僵尸', emoji: '🧟', hp: 200, speed: 0.3 },
@@ -249,7 +230,7 @@ let state = {
   lastTime: 0,
   unlockedPlants: [],
   speedBonus: 0,
-  wrongQuestions: [] // 存储本局错题
+  wrongQuestions: []
 };
 
 const $ = id => document.getElementById(id);
@@ -257,7 +238,6 @@ const lawn = $('lawn');
 
 /* ================= 初始化与路由 ================= */
 window.onload = () => {
-  // 判断是否是教师端访问
   if (window.location.search.includes('teacher')) {
     document.body.style.background = '#f0f2f5';
     $('loginScreen').style.display = 'none';
@@ -266,7 +246,6 @@ window.onload = () => {
     return;
   }
 
-  // 学生端：单设备锁定逻辑
   const savedUser = localStorage.getItem('pvz_user');
   if (savedUser) {
     const user = JSON.parse(savedUser);
@@ -293,7 +272,6 @@ function enterGame() {
   $('gameScreen').classList.add('active');
   $('uiName').textContent = state.name; $('uiClass').textContent = state.class;
   
-  // 拉取该生历史最高分
   supabase.rpc('get_top_scores', { p_limit: 1000, p_offset: 0 }).then(({data}) => {
     const me = data?.find(p => p.name === state.name && p.class === state.class);
     if (me) { state.score = me.score; $('uiScore').textContent = state.score; }
@@ -393,11 +371,9 @@ function submitAnswer() {
       updateScore(20);
       showBlindbox();
     } else {
-      // 答错记录错题并增加僵尸速度
       state.wrongQuestions.push(currentQ);
       state.speedBonus += 0.1;
       $('uiSpeedBonus').textContent = '+' + state.speedBonus.toFixed(1);
-      
       alert(`答错了！没有获得植物。\n⚠️ 僵尸被激怒了，移动速度永久增加 0.1 格/秒！`);
       resumeGame();
     }
@@ -516,7 +492,6 @@ function gameLoop(timestamp) {
 }
 
 function update(dt) {
-  // 1. 生成僵尸
   if (state.spawnedZombies < 20) {
     state.spawnTimer -= dt;
     if (state.spawnTimer <= 0) {
@@ -527,7 +502,6 @@ function update(dt) {
     }
   }
   
-  // 2. 僵尸移动与攻击
   for (let i = state.zombies.length - 1; i >= 0; i--) {
     let z = state.zombies[i];
     if (z.slowTimer > 0) z.slowTimer -= dt;
@@ -557,7 +531,6 @@ function update(dt) {
     }
   }
   
-  // 3. 植物攻击
   state.plants.forEach(p => {
     p.cd -= dt;
     if (p.cd <= 0) {
@@ -572,7 +545,6 @@ function update(dt) {
           ex.style.left = (target.x * (100/9)) + '%'; ex.style.top = (target.row * 20) + '%';
           lawn.appendChild(ex); setTimeout(() => ex.remove(), 300);
         } else if (p.type === 'wallnut') {
-          // 坚果不攻击
         } else {
           state.bullets.push({
             id: Date.now() + Math.random(), row: p.row, x: p.col + 0.5,
@@ -590,7 +562,6 @@ function update(dt) {
     }
   });
   
-  // 4. 子弹移动
   for (let i = state.bullets.length - 1; i >= 0; i--) {
     let b = state.bullets[i]; b.x += 10 * dt;
     let hit = false;
@@ -616,7 +587,6 @@ function spawnZombie() {
   const row = Math.floor(Math.random() * 5);
   const rand = Math.random();
   let type = 'normal';
-  // 概率分布：普通 50%，路障 30%，铁桶 15%，橄榄球 5%
   if (rand > 0.95) type = 'football';
   else if (rand > 0.80) type = 'bucket';
   else if (rand > 0.50) type = 'cone';
@@ -656,7 +626,6 @@ function render() {
 async function gameOver(isWin) {
   state.isPlaying = false;
   
-  // 1. 结算界面展示
   $('resultTitle').textContent = isWin ? '🎉 挑战成功！' : '💀 僵尸吃掉了你的脑子！';
   $('resultTitle').style.color = isWin ? '#4caf50' : '#e53935';
   $('resultScore').textContent = `最终得分：${state.score}`;
@@ -668,9 +637,7 @@ async function gameOver(isWin) {
     wrongArea.innerHTML = '<h4 style="margin:0 0 10px 0; color:#e53935;">本局错题回顾：</h4>';
     state.wrongQuestions.forEach((q, idx) => {
       let imgHtml = '';
-      if (q.image) {
-        imgHtml = `<img src="${q.image}.png" onerror="this.src='${q.image}.jpg'">`;
-      }
+      if (q.image) imgHtml = `<img src="${q.image}.png" onerror="this.src='${q.image}.jpg'">`;
       wrongArea.innerHTML += `
         <div class="wrong-q-item">
           <div class="wrong-q-title">${idx + 1}. ${q.q}</div>
@@ -682,7 +649,6 @@ async function gameOver(isWin) {
   }
   $('resultModal').classList.add('active');
   
-  // 2. 将错题上传到云端
   if (state.wrongQuestions.length > 0) {
     const records = state.wrongQuestions.map(q => ({
       student_name: state.name,
@@ -704,7 +670,7 @@ async function loadTeacherData() {
     .from('wrong_questions')
     .select('*')
     .order('created_at', { ascending: false })
-    .limit(200); // 只看最近200条
+    .limit(200);
 
   if (error) {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:red;">加载失败，请检查网络</td></tr>';
