@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PvZ 物理防御战</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; user-select: none; }
+  body { margin: 0; background: #2c3e20; color: #333; display: flex; justify-content: center; min-height: 100vh; }
+  
+  /* 登录界面 */
+  #loginScreen { position: fixed; inset: 0; background: rgba(15, 25, 10, 0.95); z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+  .login-box { background: #7b5b3f; border: 8px solid #5c402b; border-radius: 20px; padding: 30px; text-align: center; width: 90%; max-width: 340px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  .login-box h2 { margin: 0 0 20px; color: #ffd166; text-shadow: 2px 2px 0 #3a2210; }
+  .login-box input { width: 100%; padding: 12px; margin-bottom: 16px; border-radius: 8px; border: 2px solid #4a3523; font-size: 16px; background: #f4f1ea; outline: none; }
+  .login-btn { width: 100%; padding: 14px; border: none; border-radius: 8px; background: #4caf50; color: #fff; font-size: 18px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 0 #2e7d32; }
+  .login-btn:active { transform: translateY(4px); box-shadow: none; }
+
+  /* 主界面 */
+  #gameScreen { display: none; width: 100%; max-width: 900px; padding: 10px; flex-direction: column; gap: 10px; background: #4e7c35; min-height: 100vh; }
+  #gameScreen.active { display: flex; }
+  
+  /* 顶部信息与选卡区 */
+  .top-bar { display: flex; justify-content: space-between; align-items: center; background: #3a2210; padding: 8px 16px; border-radius: 12px; border: 2px solid #ffd166; color: #fff; font-size: 14px; flex-wrap: wrap; gap: 8px;}
+  .top-bar span { color: #ffd166; font-weight: bold; }
+  .quiz-btn { background: #ff9800; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #e65100; font-size: 14px; }
+  .quiz-btn:active { transform: translateY(3px); box-shadow: none; }
+  
+  .card-area { display: flex; gap: 8px; background: #7b5b3f; padding: 8px; border-radius: 12px; min-height: 70px; overflow-x: auto; align-items: center; }
+  .empty-cards { color: #c4b5a0; font-size: 14px; margin-left: 10px; }
+  .card { width: 50px; height: 60px; background: #f4f1ea; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border: 2px solid transparent; flex-shrink: 0; }
+  .card.selected { border-color: #ffd166; transform: scale(1.05); box-shadow: 0 0 10px #ffd166; }
+  .card .emoji { font-size: 24px; }
+  .card .name { font-size: 10px; font-weight: bold; color: #333; margin-top: 2px; }
+
+  /* 战场区 */
+  .game-board { display: flex; flex: 1; border: 4px solid #3e612a; border-radius: 12px; overflow: hidden; background: #88c053; position: relative; min-height: 400px; }
+  
+  /* 小推车 */
+  .mower-track { width: 40px; background: #6b4e3d; display: flex; flex-direction: column; border-right: 2px dashed #5c402b; }
+  .mower-slot { height: 20%; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: transform 0.3s; }
+  .mower-slot.empty { opacity: 0; }
+  
+  /* 草坪 */
+  .lawn { flex: 1; position: relative; background-image: linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px); background-size: calc(100% / 9) 20%; cursor: crosshair; overflow: hidden; }
+  
+  /* 游戏元素 */
+  .plant, .zombie, .bullet, .explosion { position: absolute; width: calc(100% / 9); height: 20%; display: flex; align-items: center; justify-content: center; font-size: 28px; transition: transform 0.1s; }
+  .zombie { font-size: 32px; z-index: 10; transition: none; }
+  .zombie.slowed { filter: hue-rotate(180deg); }
+  .bullet { font-size: 16px; z-index: 5; transition: none; }
+  
+  /* 血条 */
+  .hp-bar { position: absolute; top: 5px; width: 80%; height: 6px; background: #333; border-radius: 3px; overflow: hidden; opacity: 0; }
+  .zombie .hp-bar { opacity: 1; }
+  .hp-fill { height: 100%; background: #e53935; transition: width 0.1s; }
+  
+  /* 弹窗通用 */
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 200; padding: 16px; }
+  .modal.active { display: flex; }
+  
+  /* 答题卡 */
+  .quiz-card { width: 100%; max-width: 440px; background: #f4f1ea; border-radius: 16px; padding: 20px; border: 6px solid #7b5b3f; max-height: 90vh; overflow-y: auto; }
+  .quiz-image-wrap { text-align: center; margin-bottom: 12px; }
+  .quiz-image-wrap img { max-width: 100%; max-height: 180px; border-radius: 8px; background: #fff; display: none; }
+  .quiz-card h3 { margin: 0 0 15px; font-size: 16px; line-height: 1.5; }
+  .option { display: block; width: 100%; margin-top: 10px; padding: 12px; font-size: 14px; text-align: left; background: #e0d6c8; border: 2px solid #c4b5a0; border-radius: 8px; cursor: pointer; }
+  .option.selected { background: #bbdefb; border-color: #42a5f5; }
+  .option.right { background: #a5d6a7; border-color: #4caf50; }
+  .option.wrong { background: #ef9a9a; border-color: #e53935; }
+  .quiz-submit { width: 100%; margin-top: 15px; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; background: #4caf50; color: #fff; cursor: pointer; }
+  .quiz-submit:disabled { opacity: 0.5; }
+
+  /* 盲盒动画 */
+  .blindbox-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 300; }
+  .blindbox-modal.active { display: flex; }
+  .box { font-size: 100px; cursor: pointer; animation: shake 0.5s infinite; }
+  .reward-plant { font-size: 100px; animation: pop 0.5s ease-out forwards; }
+  @keyframes pop { 0%{transform: scale(0)} 70%{transform: scale(1.2)} 100%{transform: scale(1)} }
+  .reward-text { color: #ffd166; font-size: 24px; font-weight: bold; margin-top: 20px; text-align: center; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-10px) rotate(-5deg)} 75%{transform:translateX(10px) rotate(5deg)} }
+  
+  /* 图鉴说明卡片 */
+  .plant-info-card { width: 90%; max-width: 340px; background: #f4f1ea; border-radius: 16px; padding: 30px 20px; text-align: center; border: 6px solid #7b5b3f; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+</style>
+</head>
+<body>
+
+<!-- 登录界面 -->
+<div id="loginScreen">
+  <div class="login-box">
+    <h2>🌻 物理防御战 🌻</h2>
+    <input type="text" id="playerName" placeholder="请输入你的姓名">
+    <input type="text" id="playerClass" placeholder="请输入你的班级">
+    <button class="login-btn" onclick="login()">进入草坪</button>
+  </div>
+</div>
+
+<!-- 主游戏界面 -->
+<div id="gameScreen">
+  <div class="top-bar">
+    <div>👤 <span id="uiName"></span> (<span id="uiClass"></span>)</div>
+    <div>⭐ 积分: <span id="uiScore">0</span></div>
+    <div>🧟 进度: <span id="zombieProgress">0/20</span></div>
+    <div>⚡ 僵尸加速: <span id="uiSpeedBonus" style="color:#ff5a5a;">+0.0</span></div>
+    <button class="quiz-btn" onclick="openQuiz()">📝 答题获植物</button>
+  </div>
+
+  <div class="card-area" id="cardArea">
+    <div class="empty-cards">还没有植物，请点击右上角答题获取盲盒！</div>
+  </div>
+
+  <div class="game-board">
+    <div class="mower-track" id="mowerTrack">
+      <div class="mower-slot" id="mower-0">🚜</div>
+      <div class="mower-slot" id="mower-1">🚜</div>
+      <div class="mower-slot" id="mower-2">🚜</div>
+      <div class="mower-slot" id="mower-3">🚜</div>
+      <div class="mower-slot" id="mower-4">🚜</div>
+    </div>
+    <div class="lawn" id="lawn"></div>
+  </div>
+</div>
+
+<!-- 答题弹窗 -->
+<div class="modal" id="quizModal">
+  <div class="quiz-card">
+    <div class="quiz-image-wrap"><img id="quizImage" src=""></div>
+    <h3 id="quizQuestion"></h3>
+    <div id="quizOptions"></div>
+    <button class="quiz-submit" id="quizSubmit" style="display:none;" onclick="submitAnswer()">提交答案</button>
+  </div>
+</div>
+
+<!-- 盲盒弹窗 -->
+<div class="blindbox-modal" id="blindboxModal">
+  <div id="blindboxDisplay" class="box" onclick="openBlindbox()">🎁</div>
+  <div id="rewardPlant" class="reward-plant" style="display:none;"></div>
+  <div id="rewardText" class="reward-text" style="display:none;"></div>
+</div>
+
+<!-- 植物图鉴说明弹窗 -->
+<div class="modal" id="plantInfoModal">
+  <div class="plant-info-card">
+    <div style="font-size: 70px; margin-bottom: 10px;" id="infoEmoji"></div>
+    <h2 id="infoName" style="margin: 0 0 10px; color: #4caf50;"></h2>
+    <div id="infoDesc" style="font-size: 16px; line-height: 1.6; color: #555; margin-bottom: 25px; padding: 10px; background: rgba(0,0,0,0.05); border-radius: 8px;"></div>
+    <button class="quiz-submit" style="background:#4caf50;" onclick="closePlantInfo()">我知道了，开始种植！</button>
+  </div>
+</div>
+
+<script>
+/* ================= 配置数据 ================= */
+const ROWS = 5, COLS = 9;
+const PLANT_TYPES = {
+  peashooter: { name: '豌豆射手', emoji: '🌱', cooldown: 1.0, dmg: 10, hp: 1, desc: '基础攻击植物。每隔 1 秒发射一颗豌豆，造成 10 点伤害。' },
+  cornpult:   { name: '玉米投手', emoji: '🌽', cooldown: 1.0, dmg: 10, hp: 1, desc: '物理抛物线攻击。每隔 1 秒投射一颗玉米，造成 10 点伤害。' },
+  snowpea:    { name: '寒冰射手', emoji: '❄️', cooldown: 1.0, dmg: 10, hp: 1, freeze: true, desc: '控制型植物。每隔 1 秒发射冰豌豆，造成 10 点伤害，并大幅减缓僵尸移动速度。' },
+  repeater:   { name: '机枪豌豆', emoji: '🌿', cooldown: 0.5, dmg: 10, hp: 1, desc: '高攻速植物。每隔 0.5 秒发射一颗豌豆，造成 10 点伤害。' },
+  wallnut:    { name: '坚果墙',   emoji: '🥜', cooldown: 0, dmg: 0, hp: 10, desc: '防御型植物。没有攻击力，但能抵挡僵尸 10 次啃咬，为你争取时间。' },
+  cannon:     { name: '加农炮',   emoji: '💥', cooldown: 10.0, dmg: 100, hp: 1, desc: '终极武器。每隔 10 秒发射一发炮弹，对该行最前方的僵尸造成 100 点毁灭性伤害。' }
+};
+
+// 僵尸初始移速改为 0.2
+const ZOMBIE_TYPES = {
+  normal: { name: '普通僵尸', emoji: '🧟‍♂️', hp: 100, speed: 0.2 },
+  cone:   { name: '路障僵尸', emoji: '🧟', hp: 200, speed: 0.2 }
+};
+
+// 最新题库（第6题答案暂设为B）
+const QUESTIONS = [
+  {
+    q: '如图所示为A、B两人在同一直线上运动的位移图像，下列关于图像的分析正确的是',
+    options: ['0~2s内，A、B两人同向而行', '0~2s内，A、B两人相遇一次', '0~5s内，A走的路程比B走的路程多', '0~5s内，A的位移比B的位移大'],
+    answer: [1, 3], multi: true, image: 'q1'
+  },
+  {
+    q: '一物体从静止开始在平直的路面上做匀加速直线运动,将此时刻记为t=0时刻,其速度的二次方v²随位移x变化的关系可用如图所示的v²-x图像表示。关于该物体的运动,下列说法正确的是',
+    options: ['物体的加速度为2 m/s²', '物体从0到12 m所用的时间为4 s', '物体在0~12 m内的平均速度为6 m/s', '物体在t=6 s时的速度大小为10 m/s'],
+    answer: [1], multi: false, image: 'q2'
+  },
+  {
+    q: '一辆汽车以15 m/s的初速度在平直公路上匀加速运动,加速度大小为0.6 m/s²,加速10 s后,再以大小为3 m/s²的加速度匀减速刹车至停止,则汽车在整个过程中的位移大小为',
+    options: ['253.5 m', '127.5 m', '255 m', '306 m'],
+    answer: [0], multi: false, image: ''
+  },
+  {
+    q: '女子3 m跳板是中国跳水“梦之队”的传统优势项目。某跳水运动员在踏板上起跳,我们通过录像观察到踏板和运动员要经历如图所示的状态,其中A为无人时踏板静止点,B为人站在踏板上静止时的平衡点,C为人在起跳过程中人和踏板运动的最低点,则下列说法正确的是',
+    options: ['运动员在整个过程中受到踏板的支持力方向总是竖直向上', '运动员和踏板由B向C运动过程中,踏板对运动员的弹力越来越大', '运动员受到的支持力,是运动员的脚发生形变而产生的', '运动员在A点时受到的支持力为零'],
+    answer: [1, 3], multi: true, image: 'q4'
+  },
+  {
+    q: '一根轻弹簧两端受大小为10.0N，方向沿轻弹簧轴线的一对拉力时，轻弹簧伸长1.00 cm，现将轻弹簧上端固定，下端挂一重物，轻弹簧伸长1.35 cm,g取10 N/kg,则',
+    options: ['轻弹簧两端受大小为10.0N的拉力时，轻弹簧弹力为20.0N', '轻弹簧两端受大小为10.0N的拉力时，轻弹簧弹力为10.0N', '轻弹簧下端所挂重物的质量为1.35kg', '轻弹簧下端所挂重物的质量为2.70kg'],
+    answer: [1, 2], multi: true, image: ''
+  },
+  {
+    q: '下列关于摩擦力的说法中正确的是',
+    options: ['摩擦力的大小跟接触面的正压力成正比', '物体受到摩擦力的方向可以与该物体的运动方向成任意夹角', '在运动场上加速奔跑的运动员受到的摩擦力是滑动摩擦力', '沿平直公路匀速行驶的汽车所有车轮受到摩擦均与行驶方向相反'],
+    answer: [1], multi: false, image: '' 
+  },
+  {
+    q: '小红在社会实践活动中帮妈妈做家务时，为了清扫沙发下的地面，用水平向右的力推着沙发缓慢移动，下列说法正确的是',
+    options: ['脚对地面的摩擦力方向向左', '地面对沙发的摩擦力方向向右', '人推沙发的力大于沙发对人的力', '若改用斜向下推，更容易推动'],
+    answer: [0], multi: false, image: ''
+  },
+  {
+    q: '某同学要喝水时需要把旋紧的杯盖拧下来，则该同学在用手旋转拧下杯盖的过程中，手和杯盖之间',
+    options: ['没有弹力', '没有摩擦力', '只有弹力，没有摩擦力', '弹力和摩擦力同时存在'],
+    answer: [3], multi: false, image: ''
+  },
+  {
+    q: '某品牌激光打印机滚轮压紧A4纸后转动带动纸张进入打印机。假设每张A4纸的质量均相等，纸张之间、纸张与底板之间的动摩擦因数均相同。则在第1张纸送入打印机的过程中，下列说法正确的是',
+    options: ['第1张纸受到滚轮的摩擦力方向与纸张运动方向相反', '第1张纸对第2张纸的压力大于第2张纸对第1张纸的支持力', '滚轮与纸间的动摩擦因数小于纸张之间的动摩擦因数', '若因潮湿导致纸张之间的动摩擦因数不相同，则有可能多张纸一起被送入打印机中'],
+    answer: [3], multi: false, image: ''
+  }
+];
+
+/* ================= 核心状态 ================= */
+let state = {
+  name: '', class: '', score: 0, 
+  isPlaying: false,
+  cards: [], selectedCardId: null,
+  plants: [], zombies: [], bullets: [],
+  lawnmowers: [true, true, true, true, true],
+  spawnedZombies: 0, spawnTimer: 5,
+  lastTime: 0,
+  unlockedPlants: [],
+  speedBonus: 0 // 答错累积的僵尸加速
+};
+
+const $ = id => document.getElementById(id);
+const lawn = $('lawn');
+
+/* ================= 登录与排行榜 ================= */
+function initLeaderboard() {
+  let board = JSON.parse(localStorage.getItem('pvz_leaderboard'));
+  if (!board) {
+    board = [ { name: '张三', class: '高一(1)班', score: 150 }, { name: '李四', class: '高一(2)班', score: 90 } ];
+    localStorage.setItem('pvz_leaderboard', JSON.stringify(board));
+  }
+  return board;
+}
+function login() {
+  const name = $('playerName').value.trim();
+  const cls = $('playerClass').value.trim();
+  if (!name || !cls) return alert('请填写姓名和班级！');
+  state.name = name; state.class = cls;
+  
+  const board = initLeaderboard();
+  const existing = board.find(p => p.name === name && p.class === cls);
+  if (existing) state.score = existing.score;
+  else {
+    board.push({ name, class: cls, score: 0 });
+    localStorage.setItem('pvz_leaderboard', JSON.stringify(board));
+  }
+  
+  $('loginScreen').style.display = 'none';
+  $('gameScreen').classList.add('active');
+  $('uiName').textContent = name; $('uiClass').textContent = cls;
+  $('uiScore').textContent = state.score;
+  
+  state.isPlaying = false;
+  setTimeout(() => alert('欢迎来到物理草坪！请先点击右上角【答题获植物】，获得植物卡片后才能开始游戏！'), 500);
+}
+
+function updateScore(addScore) {
+  state.score += addScore;
+  $('uiScore').textContent = state.score;
+  const board = initLeaderboard();
+  const me = board.find(p => p.name === state.name && p.class === state.class);
+  if (me) me.score = state.score;
+  localStorage.setItem('pvz_leaderboard', JSON.stringify(board));
+}
+
+/* ================= 答题系统 ================= */
+let currentQ = null, selectedOpts = new Set(), isAnswering = false;
+let qPool = [];
+
+function openQuiz() {
+  if (state.zombies.length > 0) {
+    if (!confirm('游戏正在进行中，答题会暂停游戏。是否继续？')) return;
+  }
+  state.isPlaying = false; 
+  
+  if (qPool.length === 0) {
+    qPool = QUESTIONS.map((_, i) => i).sort(() => Math.random() - 0.5);
+  }
+  currentQ = QUESTIONS[qPool.pop()];
+  selectedOpts.clear(); isAnswering = false;
+  
+  $('quizQuestion').textContent = currentQ.q;
+  const img = $('quizImage');
+  if (currentQ.image) {
+    img.style.display = 'block';
+    img.src = currentQ.image + '.png';
+    img.onerror = function() { this.src = currentQ.image + '.jpg'; };
+  } else {
+    img.style.display = 'none';
+  }
+  
+  const box = $('quizOptions');
+  box.innerHTML = '';
+  currentQ.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'option';
+    btn.textContent = String.fromCharCode(65 + i) + '. ' + opt;
+    btn.onclick = () => onOptClick(i, btn);
+    box.appendChild(btn);
+  });
+  
+  $('quizSubmit').style.display = currentQ.multi ? 'block' : 'none';
+  $('quizSubmit').disabled = true;
+  $('quizModal').classList.add('active');
+}
+
+function onOptClick(i, btn) {
+  if (isAnswering) return;
+  if (currentQ.multi) {
+    if (selectedOpts.has(i)) { selectedOpts.delete(i); btn.classList.remove('selected'); }
+    else { selectedOpts.add(i); btn.classList.add('selected'); }
+    $('quizSubmit').disabled = selectedOpts.size === 0;
+  } else {
+    selectedOpts = new Set([i]); btn.classList.add('selected');
+    submitAnswer();
+  }
+}
+
+function submitAnswer() {
+  if (isAnswering || selectedOpts.size === 0) return;
+  isAnswering = true;
+  
+  const isCorrect = selectedOpts.size === currentQ.answer.length && currentQ.answer.every(i => selectedOpts.has(i));
+  const btns = [...$('quizOptions').children];
+  btns.forEach((b, i) => {
+    b.disabled = true;
+    if (currentQ.answer.includes(i)) b.classList.add('right');
+    else if (selectedOpts.has(i)) b.classList.add('wrong');
+  });
+  
+  setTimeout(() => {
+    $('quizModal').classList.remove('active');
+    if (isCorrect) {
+      updateScore(20);
+      showBlindbox();
+    } else {
+      // 答错惩罚：僵尸加速 +0.1
+      state.speedBonus += 0.1;
+      $('uiSpeedBonus').textContent = '+' + state.speedBonus.toFixed(1);
+      
+      alert(`答错了！没有获得植物。\n⚠️ 僵尸被激怒了，移动速度永久增加 0.1 格/秒！`);
+      resumeGame();
+    }
+  }, 1000);
+}
+
+/* ================= 盲盒与种植 ================= */
+function showBlindbox() {
+  $('blindboxDisplay').style.display = 'block';
+  $('blindboxDisplay').textContent = '🎁';
+  $('rewardPlant').style.display = 'none';
+  $('rewardText').style.display = 'none';
+  $('blindboxModal').classList.add('active');
+}
+
+function openBlindbox() {
+  const box = $('blindboxDisplay');
+  if (box.textContent === '💥') return;
+  box.textContent = '💥';
+  
+  setTimeout(() => {
+    box.style.display = 'none';
+    const keys = Object.keys(PLANT_TYPES);
+    const randType = keys[Math.floor(Math.random() * keys.length)];
+    const plantData = PLANT_TYPES[randType];
+    
+    const isFirstTime = !state.unlockedPlants.includes(randType);
+    if (isFirstTime) state.unlockedPlants.push(randType);
+    
+    state.cards.push({ id: Date.now(), type: randType });
+    renderCards();
+    
+    $('rewardPlant').textContent = plantData.emoji;
+    $('rewardPlant').style.display = 'block';
+    $('rewardText').textContent = isFirstTime ? `✨ 首次获得新植物：${plantData.name}！` : `获得植物：${plantData.name}！`;
+    $('rewardText').style.display = 'block';
+    
+    setTimeout(() => {
+      $('blindboxModal').classList.remove('active');
+      if (isFirstTime) {
+        showPlantInfo(randType); 
+      } else {
+        resumeGame();
+      }
+    }, 2000);
+  }, 800);
+}
+
+function showPlantInfo(type) {
+  const p = PLANT_TYPES[type];
+  $('infoEmoji').textContent = p.emoji;
+  $('infoName').textContent = p.name;
+  $('infoDesc').textContent = p.desc;
+  $('plantInfoModal').classList.add('active');
+}
+
+function closePlantInfo() {
+  $('plantInfoModal').classList.remove('active');
+  resumeGame();
+}
+
+function resumeGame() {
+  if (!state.isPlaying) {
+    state.isPlaying = true;
+    state.lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+  }
+}
+
+function renderCards() {
+  const area = $('cardArea');
+  area.innerHTML = '';
+  if (state.cards.length === 0) {
+    area.innerHTML = '<div class="empty-cards">卡槽为空，快去答题吧！</div>';
+    return;
+  }
+  state.cards.forEach(c => {
+    const p = PLANT_TYPES[c.type];
+    const div = document.createElement('div');
+    div.className = 'card' + (state.selectedCardId === c.id ? ' selected' : '');
+    div.innerHTML = `<div class="emoji">${p.emoji}</div><div class="name">${p.name}</div>`;
+    div.onclick = () => {
+      state.selectedCardId = c.id;
+      renderCards();
+    };
+    area.appendChild(div);
+  });
+}
+
+lawn.onclick = (e) => {
+  if (!state.selectedCardId) return;
+  const rect = lawn.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const col = Math.floor(x / (rect.width / COLS));
+  const row = Math.floor(y / (rect.height / ROWS));
+  
+  if (state.plants.find(p => p.row === row && p.col === col)) return;
+  
+  const cardIdx = state.cards.findIndex(c => c.id === state.selectedCardId);
+  if (cardIdx === -1) return;
+  
+  const type = state.cards[cardIdx].type;
+  const newPlant = {
+    id: Date.now() + Math.random(),
+    type, row, col,
+    hp: PLANT_TYPES[type].hp,
+    maxHp: PLANT_TYPES[type].hp,
+    cd: 0
+  };
+  state.plants.push(newPlant);
+  
+  state.cards.splice(cardIdx, 1);
+  state.selectedCardId = null;
+  renderCards();
+};
+
+/* ================= 游戏主循环 ================= */
+function gameLoop(timestamp) {
+  if (!state.isPlaying) return;
+  if (!state.lastTime) state.lastTime = timestamp;
+  let dt = (timestamp - state.lastTime) / 1000;
+  state.lastTime = timestamp;
+  
+  if (dt > 0.1) dt = 0.1;
+  
+  update(dt);
+  render();
+  
+  requestAnimationFrame(gameLoop);
+}
+
+function update(dt) {
+  // 1. 生成僵尸
+  if (state.spawnedZombies < 20) {
+    state.spawnTimer -= dt;
+    if (state.spawnTimer <= 0) {
+      spawnZombie();
+      state.spawnedZombies++;
+      $('zombieProgress').textContent = `${state.spawnedZombies}/20`;
+      state.spawnTimer = 4 + Math.random() * 2;
+    }
+  }
+  
+  // 2. 更新僵尸（加入累计速度加成）
+  for (let i = state.zombies.length - 1; i >= 0; i--) {
+    let z = state.zombies[i];
+    if (z.slowTimer > 0) z.slowTimer -= dt;
+    
+    // 实际速度 = 基础速度 + 答错惩罚速度，再乘寒冰减速
+    let currentBaseSpeed = z.speed + state.speedBonus;
+    let speed = z.slowTimer > 0 ? currentBaseSpeed * 0.8 : currentBaseSpeed;
+    
+    let col = Math.floor(z.x);
+    let plant = state.plants.find(p => p.row === z.row && p.col === col);
+    
+    if (plant) {
+      z.attackTimer = (z.attackTimer || 0) - dt;
+      if (z.attackTimer <= 0) {
+        z.attackTimer = 1.0;
+        plant.hp -= 1;
+        if (plant.hp <= 0) {
+          state.plants = state.plants.filter(p => p.id !== plant.id);
+        }
+      }
+    } else {
+      z.x -= speed * dt;
+      if (z.x <= 0.2) {
+        if (state.lawnmowers[z.row]) {
+          state.lawnmowers[z.row] = false;
+          $('mower-' + z.row).classList.add('empty');
+          state.zombies = state.zombies.filter(zz => zz.row !== z.row);
+          break;
+        } else {
+          gameOver(false);
+          return;
+        }
+      }
+    }
+  }
+  
+  // 3. 植物攻击
+  state.plants.forEach(p => {
+    p.cd -= dt;
+    if (p.cd <= 0) {
+      let targets = state.zombies.filter(z => z.row === p.row && z.x > p.col);
+      if (targets.length > 0) {
+        targets.sort((a,b) => a.x - b.x);
+        let target = targets[0];
+        
+        if (p.type === 'cannon') {
+          target.hp -= 100;
+          p.cd = 10;
+          let ex = document.createElement('div');
+          ex.className = 'explosion';
+          ex.textContent = '💥';
+          ex.style.left = (target.x * (100/9)) + '%';
+          ex.style.top = (target.row * 20) + '%';
+          lawn.appendChild(ex);
+          setTimeout(() => ex.remove(), 300);
+        } else if (p.type === 'wallnut') {
+          // 坚果不攻击
+        } else {
+          state.bullets.push({
+            id: Date.now() + Math.random(),
+            row: p.row, x: p.col + 0.5,
+            dmg: PLANT_TYPES[p.type].dmg,
+            freeze: PLANT_TYPES[p.type].freeze || false,
+            emoji: p.type === 'cornpult' ? '🌽' : (p.type === 'snowpea' ? '❄️' : '🟢')
+          });
+          p.cd = PLANT_TYPES[p.type].cooldown;
+        }
+        
+        if (target.hp <= 0) {
+          state.zombies = state.zombies.filter(z => z.id !== target.id);
+          updateScore(10);
+        }
+      }
+    }
+  });
+  
+  // 4. 更新子弹
+  for (let i = state.bullets.length - 1; i >= 0; i--) {
+    let b = state.bullets[i];
+    b.x += 10 * dt;
+    
+    let hit = false;
+    for (let z of state.zombies) {
+      if (z.row === b.row && b.x >= z.x && b.x <= z.x + 0.8) {
+        z.hp -= b.dmg;
+        if (b.freeze) z.slowTimer = 2.0;
+        hit = true;
+        if (z.hp <= 0) {
+          state.zombies = state.zombies.filter(zz => zz.id !== z.id);
+          updateScore(10);
+        }
+        break;
+      }
+    }
+    if (hit || b.x > 9.5) state.bullets.splice(i, 1);
+  }
+  
+  // 5. 胜利判定
+  if (state.spawnedZombies >= 20 && state.zombies.length === 0) {
+    gameOver(true);
+  }
+}
+
+function spawnZombie() {
+  const row = Math.floor(Math.random() * 5);
+  const isCone = Math.random() < 0.3;
+  const type = isCone ? 'cone' : 'normal';
+  state.zombies.push({
+    id: Date.now() + Math.random(),
+    row, x: 9.5,
+    hp: ZOMBIE_TYPES[type].hp,
+    maxHp: ZOMBIE_TYPES[type].hp,
+    speed: ZOMBIE_TYPES[type].speed, // 基础速度存入，更新时再加惩罚
+    emoji: ZOMBIE_TYPES[type].emoji,
+    slowTimer: 0, attackTimer: 0
+  });
+}
+
+function render() {
+  let plantsHtml = '';
+  state.plants.forEach(p => {
+    plantsHtml += `<div class="plant" style="left:${p.col * (100/9)}%; top:${p.row * 20}%">
+      <div style="font-size:28px">${PLANT_TYPES[p.type].emoji}</div>
+    </div>`;
+  });
+  
+  let zombiesHtml = '';
+  state.zombies.forEach(z => {
+    const hpPct = Math.max(0, z.hp / z.maxHp * 100);
+    zombiesHtml += `<div class="zombie ${z.slowTimer > 0 ? 'slowed' : ''}" style="left:${z.x * (100/9)}%; top:${z.row * 20}%">
+      <div class="hp-bar"><div class="hp-fill" style="width:${hpPct}%"></div></div>
+      <div>${z.emoji}</div>
+    </div>`;
+  });
+  
+  let bulletsHtml = '';
+  state.bullets.forEach(b => {
+    bulletsHtml += `<div class="bullet" style="left:${b.x * (100/9)}%; top:${b.row * 20}%">${b.emoji}</div>`;
+  });
+  
+  let container = $('entityLayer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'entityLayer';
+    container.style.cssText = 'position:absolute; inset:0; pointer-events:none;';
+    lawn.appendChild(container);
+  }
+  container.innerHTML = plantsHtml + zombiesHtml + bulletsHtml;
+}
+
+function gameOver(isWin) {
+  state.isPlaying = false;
+  if (isWin) {
+    alert(`🎉 挑战成功！你抵御了 20 波僵尸！\n最终得分：${state.score}`);
+  } else {
+    alert(`💀 僵尸吃掉了你的脑子！游戏失败。\n最终得分：${state.score}`);
+  }
+  location.reload();
+}
+
+window.onload = () => {
+  initLeaderboard();
+};
+</script>
+</body>
+</html>
