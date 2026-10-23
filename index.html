@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>PvZ 物理防御战</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; user-select: none; }
   body { margin: 0; background: #2c3e20; color: #333; display: flex; justify-content: center; min-height: 100vh; }
@@ -20,11 +21,9 @@
   #gameScreen { display: none; width: 100%; max-width: 900px; padding: 10px; flex-direction: column; gap: 10px; background: #4e7c35; min-height: 100vh; }
   #gameScreen.active { display: flex; }
   
-  /* 顶部信息与选卡区 */
   .top-bar { display: flex; justify-content: space-between; align-items: center; background: #3a2210; padding: 8px 16px; border-radius: 12px; border: 2px solid #ffd166; color: #fff; font-size: 14px; flex-wrap: wrap; gap: 8px;}
   .top-bar span { color: #ffd166; font-weight: bold; }
   .quiz-btn { background: #ff9800; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #e65100; font-size: 14px; }
-  .quiz-btn:active { transform: translateY(3px); box-shadow: none; }
   
   .card-area { display: flex; gap: 8px; background: #7b5b3f; padding: 8px; border-radius: 12px; min-height: 70px; overflow-x: auto; align-items: center; }
   .empty-cards { color: #c4b5a0; font-size: 14px; margin-left: 10px; }
@@ -33,33 +32,25 @@
   .card .emoji { font-size: 24px; }
   .card .name { font-size: 10px; font-weight: bold; color: #333; margin-top: 2px; }
 
-  /* 战场区 */
   .game-board { display: flex; flex: 1; border: 4px solid #3e612a; border-radius: 12px; overflow: hidden; background: #88c053; position: relative; min-height: 400px; }
-  
-  /* 小推车 */
   .mower-track { width: 40px; background: #6b4e3d; display: flex; flex-direction: column; border-right: 2px dashed #5c402b; }
   .mower-slot { height: 20%; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: transform 0.3s; }
   .mower-slot.empty { opacity: 0; }
   
-  /* 草坪 */
   .lawn { flex: 1; position: relative; background-image: linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px); background-size: calc(100% / 9) 20%; cursor: crosshair; overflow: hidden; }
   
-  /* 游戏元素 */
-  .plant, .zombie, .bullet, .explosion { position: absolute; width: calc(100% / 9); height: 20%; display: flex; align-items: center; justify-content: center; font-size: 28px; transition: transform 0.1s; }
+  .plant, .zombie, .bullet, .explosion { position: absolute; width: calc(100% / 9); height: 20%; display: flex; align-items: center; justify-content: center; font-size: 28px; }
   .zombie { font-size: 32px; z-index: 10; transition: none; }
   .zombie.slowed { filter: hue-rotate(180deg); }
   .bullet { font-size: 16px; z-index: 5; transition: none; }
   
-  /* 血条 */
   .hp-bar { position: absolute; top: 5px; width: 80%; height: 6px; background: #333; border-radius: 3px; overflow: hidden; opacity: 0; }
   .zombie .hp-bar { opacity: 1; }
   .hp-fill { height: 100%; background: #e53935; transition: width 0.1s; }
   
-  /* 弹窗通用 */
   .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 200; padding: 16px; }
   .modal.active { display: flex; }
   
-  /* 答题卡 */
   .quiz-card { width: 100%; max-width: 440px; background: #f4f1ea; border-radius: 16px; padding: 20px; border: 6px solid #7b5b3f; max-height: 90vh; overflow-y: auto; }
   .quiz-image-wrap { text-align: center; margin-bottom: 12px; }
   .quiz-image-wrap img { max-width: 100%; max-height: 180px; border-radius: 8px; background: #fff; display: none; }
@@ -69,9 +60,7 @@
   .option.right { background: #a5d6a7; border-color: #4caf50; }
   .option.wrong { background: #ef9a9a; border-color: #e53935; }
   .quiz-submit { width: 100%; margin-top: 15px; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; background: #4caf50; color: #fff; cursor: pointer; }
-  .quiz-submit:disabled { opacity: 0.5; }
 
-  /* 盲盒动画 */
   .blindbox-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 300; }
   .blindbox-modal.active { display: flex; }
   .box { font-size: 100px; cursor: pointer; animation: shake 0.5s infinite; }
@@ -80,8 +69,29 @@
   .reward-text { color: #ffd166; font-size: 24px; font-weight: bold; margin-top: 20px; text-align: center; }
   @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-10px) rotate(-5deg)} 75%{transform:translateX(10px) rotate(5deg)} }
   
-  /* 图鉴说明卡片 */
-  .plant-info-card { width: 90%; max-width: 340px; background: #f4f1ea; border-radius: 16px; padding: 30px 20px; text-align: center; border: 6px solid #7b5b3f; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  .plant-info-card { width: 90%; max-width: 340px; background: #f4f1ea; border-radius: 16px; padding: 30px 20px; text-align: center; border: 6px solid #7b5b3f; }
+
+  .sidebar { width: 100%; max-width: 280px; margin: 0 auto; background: rgba(30,40,20,0.85); border-radius: 12px; padding: 15px; border: 2px solid #4e7c35; color: #fff;}
+  .sidebar h3 { margin: 0 0 10px; color: #ffd166; text-align: center; font-size: 16px; border-bottom: 1px solid #4e7c35; padding-bottom: 8px;}
+  #leaderboard { list-style: none; padding: 0; margin: 0; font-size: 13px;}
+  #leaderboard li { display: flex; justify-content: space-between; padding: 8px 10px; background: rgba(255,255,255,0.05); border-radius: 6px; margin-bottom: 6px;}
+  #leaderboard li:nth-child(1) { background: rgba(255,209,102,0.2); border: 1px solid #ffd166;}
+  #leaderboard li:nth-child(2) { background: rgba(192,192,192,0.2); }
+  #leaderboard li:nth-child(3) { background: rgba(205,127,50,0.2); }
+
+  /* 结算与错题面板 */
+  #resultModal .quiz-card { max-width: 500px; }
+  .wrong-q-item { background: #fff; border: 1px solid #ccc; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 14px;}
+  .wrong-q-item img { max-width: 100%; max-height: 120px; margin: 8px 0; border-radius: 4px; }
+  .wrong-q-title { font-weight: bold; margin-bottom: 6px; line-height: 1.4;}
+  
+  /* 教师端界面 */
+  #teacherScreen { display: none; width: 100%; max-width: 900px; padding: 20px; background: #fff; min-height: 100vh; flex-direction: column; }
+  #teacherScreen.active { display: flex; }
+  .teacher-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-bottom: 20px;}
+  .teacher-table { width: 100%; border-collapse: collapse; margin-top: 10px;}
+  .teacher-table th, .teacher-table td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px;}
+  .teacher-table th { background: #f4f4f4; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -93,6 +103,7 @@
     <input type="text" id="playerName" placeholder="请输入你的姓名">
     <input type="text" id="playerClass" placeholder="请输入你的班级">
     <button class="login-btn" onclick="login()">进入草坪</button>
+    <div style="font-size:12px; color:#aaa; margin-top:15px;">* 每个设备仅能绑定一个ID</div>
   </div>
 </div>
 
@@ -120,6 +131,11 @@
     </div>
     <div class="lawn" id="lawn"></div>
   </div>
+
+  <div class="sidebar">
+    <h3>🏆 实时排行榜</h3>
+    <ul id="leaderboard"><li style="text-align:center; opacity:0.6;">加载中...</li></ul>
+  </div>
 </div>
 
 <!-- 答题弹窗 -->
@@ -139,7 +155,7 @@
   <div id="rewardText" class="reward-text" style="display:none;"></div>
 </div>
 
-<!-- 植物图鉴说明弹窗 -->
+<!-- 植物图鉴说明 -->
 <div class="modal" id="plantInfoModal">
   <div class="plant-info-card">
     <div style="font-size: 70px; margin-bottom: 10px;" id="infoEmoji"></div>
@@ -149,7 +165,48 @@
   </div>
 </div>
 
+<!-- 结算与错题回顾弹窗 -->
+<div class="modal" id="resultModal">
+  <div class="quiz-card">
+    <h2 id="resultTitle" style="text-align:center; color:#4caf50; margin-top:0;">游戏结束</h2>
+    <div id="resultScore" style="text-align:center; font-size:20px; font-weight:bold; margin-bottom:15px;">最终得分: 0</div>
+    
+    <div id="wrongQuestionsArea" style="max-height: 50vh; overflow-y: auto;">
+      <!-- 错题动态渲染 -->
+    </div>
+    
+    <button class="quiz-submit" onclick="location.reload()">返回主页</button>
+  </div>
+</div>
+
+<!-- 教师端后台 -->
+<div id="teacherScreen">
+  <div class="teacher-header">
+    <h1>👨‍🏫 教师控制台 - 学生错题本</h1>
+    <button class="quiz-btn" style="background:#2196f3; box-shadow:none;" onclick="loadTeacherData()">刷新数据</button>
+  </div>
+  <table class="teacher-table">
+    <thead>
+      <tr>
+        <th>时间</th>
+        <th>班级</th>
+        <th>姓名</th>
+        <th>错题题干</th>
+        <th>正确答案</th>
+      </tr>
+    </thead>
+    <tbody id="teacherDataBody">
+      <tr><td colspan="5" style="text-align:center;">正在加载数据...</td></tr>
+    </tbody>
+  </table>
+</div>
+
 <script>
+/* ================= Supabase 初始化 ================= */
+const SUPABASE_URL = 'https://vpojsqmoxwyexainqizx.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_TyhcbLf7tSwpqpuxvmzEpQ_L8xBDFv0';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 /* ================= 配置数据 ================= */
 const ROWS = 5, COLS = 9;
 const PLANT_TYPES = {
@@ -161,59 +218,24 @@ const PLANT_TYPES = {
   cannon:     { name: '加农炮',   emoji: '💥', cooldown: 10.0, dmg: 100, hp: 1, desc: '终极武器。每隔 10 秒发射一发炮弹，对该行最前方的僵尸造成 100 点毁灭性伤害。' }
 };
 
-// 僵尸初始移速改为 0.2
+// 新增血量为300和400的强力僵尸，初始速度提升至 0.3
 const ZOMBIE_TYPES = {
-  normal: { name: '普通僵尸', emoji: '🧟‍♂️', hp: 100, speed: 0.2 },
-  cone:   { name: '路障僵尸', emoji: '🧟', hp: 200, speed: 0.2 }
+  normal: { name: '普通僵尸', emoji: '🧟‍♂️', hp: 100, speed: 0.3 },
+  cone:   { name: '路障僵尸', emoji: '🧟', hp: 200, speed: 0.3 },
+  bucket: { name: '铁桶僵尸', emoji: '🪣', hp: 300, speed: 0.3 },
+  football: { name: '橄榄球僵尸', emoji: '🏈', hp: 400, speed: 0.3 }
 };
 
-// 最新题库（第6题答案暂设为B）
 const QUESTIONS = [
-  {
-    q: '如图所示为A、B两人在同一直线上运动的位移图像，下列关于图像的分析正确的是',
-    options: ['0~2s内，A、B两人同向而行', '0~2s内，A、B两人相遇一次', '0~5s内，A走的路程比B走的路程多', '0~5s内，A的位移比B的位移大'],
-    answer: [1, 3], multi: true, image: 'q1'
-  },
-  {
-    q: '一物体从静止开始在平直的路面上做匀加速直线运动,将此时刻记为t=0时刻,其速度的二次方v²随位移x变化的关系可用如图所示的v²-x图像表示。关于该物体的运动,下列说法正确的是',
-    options: ['物体的加速度为2 m/s²', '物体从0到12 m所用的时间为4 s', '物体在0~12 m内的平均速度为6 m/s', '物体在t=6 s时的速度大小为10 m/s'],
-    answer: [1], multi: false, image: 'q2'
-  },
-  {
-    q: '一辆汽车以15 m/s的初速度在平直公路上匀加速运动,加速度大小为0.6 m/s²,加速10 s后,再以大小为3 m/s²的加速度匀减速刹车至停止,则汽车在整个过程中的位移大小为',
-    options: ['253.5 m', '127.5 m', '255 m', '306 m'],
-    answer: [0], multi: false, image: ''
-  },
-  {
-    q: '女子3 m跳板是中国跳水“梦之队”的传统优势项目。某跳水运动员在踏板上起跳,我们通过录像观察到踏板和运动员要经历如图所示的状态,其中A为无人时踏板静止点,B为人站在踏板上静止时的平衡点,C为人在起跳过程中人和踏板运动的最低点,则下列说法正确的是',
-    options: ['运动员在整个过程中受到踏板的支持力方向总是竖直向上', '运动员和踏板由B向C运动过程中,踏板对运动员的弹力越来越大', '运动员受到的支持力,是运动员的脚发生形变而产生的', '运动员在A点时受到的支持力为零'],
-    answer: [1, 3], multi: true, image: 'q4'
-  },
-  {
-    q: '一根轻弹簧两端受大小为10.0N，方向沿轻弹簧轴线的一对拉力时，轻弹簧伸长1.00 cm，现将轻弹簧上端固定，下端挂一重物，轻弹簧伸长1.35 cm,g取10 N/kg,则',
-    options: ['轻弹簧两端受大小为10.0N的拉力时，轻弹簧弹力为20.0N', '轻弹簧两端受大小为10.0N的拉力时，轻弹簧弹力为10.0N', '轻弹簧下端所挂重物的质量为1.35kg', '轻弹簧下端所挂重物的质量为2.70kg'],
-    answer: [1, 2], multi: true, image: ''
-  },
-  {
-    q: '下列关于摩擦力的说法中正确的是',
-    options: ['摩擦力的大小跟接触面的正压力成正比', '物体受到摩擦力的方向可以与该物体的运动方向成任意夹角', '在运动场上加速奔跑的运动员受到的摩擦力是滑动摩擦力', '沿平直公路匀速行驶的汽车所有车轮受到摩擦均与行驶方向相反'],
-    answer: [1], multi: false, image: '' 
-  },
-  {
-    q: '小红在社会实践活动中帮妈妈做家务时，为了清扫沙发下的地面，用水平向右的力推着沙发缓慢移动，下列说法正确的是',
-    options: ['脚对地面的摩擦力方向向左', '地面对沙发的摩擦力方向向右', '人推沙发的力大于沙发对人的力', '若改用斜向下推，更容易推动'],
-    answer: [0], multi: false, image: ''
-  },
-  {
-    q: '某同学要喝水时需要把旋紧的杯盖拧下来，则该同学在用手旋转拧下杯盖的过程中，手和杯盖之间',
-    options: ['没有弹力', '没有摩擦力', '只有弹力，没有摩擦力', '弹力和摩擦力同时存在'],
-    answer: [3], multi: false, image: ''
-  },
-  {
-    q: '某品牌激光打印机滚轮压紧A4纸后转动带动纸张进入打印机。假设每张A4纸的质量均相等，纸张之间、纸张与底板之间的动摩擦因数均相同。则在第1张纸送入打印机的过程中，下列说法正确的是',
-    options: ['第1张纸受到滚轮的摩擦力方向与纸张运动方向相反', '第1张纸对第2张纸的压力大于第2张纸对第1张纸的支持力', '滚轮与纸间的动摩擦因数小于纸张之间的动摩擦因数', '若因潮湿导致纸张之间的动摩擦因数不相同，则有可能多张纸一起被送入打印机中'],
-    answer: [3], multi: false, image: ''
-  }
+  { q: '如图所示为A、B两人在同一直线上运动的位移图像，下列关于图像的分析正确的是', options: ['0~2s内，A、B两人同向而行', '0~2s内，A、B两人相遇一次', '0~5s内，A走的路程比B走的路程多', '0~5s内，A的位移比B的位移大'], answer: [1, 3], multi: true, image: 'q1' },
+  { q: '一物体从静止开始在平直的路面上做匀加速直线运动,将此时刻记为t=0时刻,其速度的二次方v²随位移x变化的关系可用如图所示的v²-x图像表示。关于该物体的运动,下列说法正确的是', options: ['物体的加速度为2 m/s²', '物体从0到12 m所用的时间为4 s', '物体在0~12 m内的平均速度为6 m/s', '物体在t=6 s时的速度大小为10 m/s'], answer: [1], multi: false, image: 'q2' },
+  { q: '一辆汽车以15 m/s的初速度在平直公路上匀加速运动,加速度大小为0.6 m/s²,加速10 s后,再以大小为3 m/s²的加速度匀减速刹车至停止,则汽车在整个过程中的位移大小为', options: ['253.5 m', '127.5 m', '255 m', '306 m'], answer: [0], multi: false, image: '' },
+  { q: '女子3 m跳板是中国跳水“梦之队”的传统优势项目。某跳水运动员在踏板上起跳,我们通过录像观察到踏板和运动员要经历如图所示的状态,其中A为无人时踏板静止点,B为人站在踏板上静止时的平衡点,C为人在起跳过程中人和踏板运动的最低点,则下列说法正确的是', options: ['运动员在整个过程中受到踏板的支持力方向总是竖直向上', '运动员和踏板由B向C运动过程中,踏板对运动员的弹力越来越大', '运动员受到的支持力,是运动员的脚发生形变而产生的', '运动员在A点时受到的支持力为零'], answer: [1, 3], multi: true, image: 'q4' },
+  { q: '一根轻弹簧两端受大小为10.0N，方向沿轻弹簧轴线的一对拉力时，轻弹簧伸长1.00 cm，现将轻弹簧上端固定，下端挂一重物，轻弹簧伸长1.35 cm,g取10 N/kg,则', options: ['轻弹簧两端受大小为10.0N的拉力时，轻弹簧弹力为20.0N', '轻弹簧两端受大小为10.0N的拉力时，轻弹簧弹力为10.0N', '轻弹簧下端所挂重物的质量为1.35kg', '轻弹簧下端所挂重物的质量为2.70kg'], answer: [1, 2], multi: true, image: '' },
+  { q: '下列关于摩擦力的说法中正确的是', options: ['摩擦力的大小跟接触面的正压力成正比', '物体受到摩擦力的方向可以与该物体的运动方向成任意夹角', '在运动场上加速奔跑的运动员受到的摩擦力是滑动摩擦力', '沿平直公路匀速行驶的汽车所有车轮受到摩擦均与行驶方向相反'], answer: [1], multi: false, image: '' },
+  { q: '小红在社会实践活动中帮妈妈做家务时，为了清扫沙发下的地面，用水平向右的力推着沙发缓慢移动，下列说法正确的是', options: ['脚对地面的摩擦力方向向左', '地面对沙发的摩擦力方向向右', '人推沙发的力大于沙发对人的力', '若改用斜向下推，更容易推动'], answer: [0], multi: false, image: '' },
+  { q: '某同学要喝水时需要把旋紧的杯盖拧下来，则该同学在用手旋转拧下杯盖的过程中，手和杯盖之间', options: ['没有弹力', '没有摩擦力', '只有弹力，没有摩擦力', '弹力和摩擦力同时存在'], answer: [3], multi: false, image: '' },
+  { q: '某品牌激光打印机滚轮压紧A4纸后转动带动纸张进入打印机。假设每张A4纸的质量均相等，纸张之间、纸张与底板之间的动摩擦因数均相同。则在第1张纸送入打印机的过程中，下列说法正确的是', options: ['第1张纸受到滚轮的摩擦力方向与纸张运动方向相反', '第1张纸对第2张纸的压力大于第2张纸对第1张纸的支持力', '滚轮与纸间的动摩擦因数小于纸张之间的动摩擦因数', '若因潮湿导致纸张之间的动摩擦因数不相同，则有可能多张纸一起被送入打印机中'], answer: [3], multi: false, image: '' }
 ];
 
 /* ================= 核心状态 ================= */
@@ -226,63 +248,90 @@ let state = {
   spawnedZombies: 0, spawnTimer: 5,
   lastTime: 0,
   unlockedPlants: [],
-  speedBonus: 0 // 答错累积的僵尸加速
+  speedBonus: 0,
+  wrongQuestions: [] // 存储本局错题
 };
 
 const $ = id => document.getElementById(id);
 const lawn = $('lawn');
 
-/* ================= 登录与排行榜 ================= */
-function initLeaderboard() {
-  let board = JSON.parse(localStorage.getItem('pvz_leaderboard'));
-  if (!board) {
-    board = [ { name: '张三', class: '高一(1)班', score: 150 }, { name: '李四', class: '高一(2)班', score: 90 } ];
-    localStorage.setItem('pvz_leaderboard', JSON.stringify(board));
+/* ================= 初始化与路由 ================= */
+window.onload = () => {
+  // 判断是否是教师端访问
+  if (window.location.search.includes('teacher')) {
+    document.body.style.background = '#f0f2f5';
+    $('loginScreen').style.display = 'none';
+    $('teacherScreen').classList.add('active');
+    loadTeacherData();
+    return;
   }
-  return board;
-}
+
+  // 学生端：单设备锁定逻辑
+  const savedUser = localStorage.getItem('pvz_user');
+  if (savedUser) {
+    const user = JSON.parse(savedUser);
+    state.name = user.name;
+    state.class = user.class;
+    enterGame();
+  } else {
+    $('loginScreen').style.display = 'flex';
+  }
+};
+
 function login() {
   const name = $('playerName').value.trim();
   const cls = $('playerClass').value.trim();
   if (!name || !cls) return alert('请填写姓名和班级！');
+  
   state.name = name; state.class = cls;
-  
-  const board = initLeaderboard();
-  const existing = board.find(p => p.name === name && p.class === cls);
-  if (existing) state.score = existing.score;
-  else {
-    board.push({ name, class: cls, score: 0 });
-    localStorage.setItem('pvz_leaderboard', JSON.stringify(board));
-  }
-  
+  localStorage.setItem('pvz_user', JSON.stringify({name, class: cls}));
+  enterGame();
+}
+
+function enterGame() {
   $('loginScreen').style.display = 'none';
   $('gameScreen').classList.add('active');
-  $('uiName').textContent = name; $('uiClass').textContent = cls;
-  $('uiScore').textContent = state.score;
+  $('uiName').textContent = state.name; $('uiClass').textContent = state.class;
   
-  state.isPlaying = false;
+  // 拉取该生历史最高分
+  supabase.rpc('get_top_scores', { p_limit: 1000, p_offset: 0 }).then(({data}) => {
+    const me = data?.find(p => p.name === state.name && p.class === state.class);
+    if (me) { state.score = me.score; $('uiScore').textContent = state.score; }
+  });
+
+  fetchLeaderboard();
+  setInterval(fetchLeaderboard, 10000);
+
   setTimeout(() => alert('欢迎来到物理草坪！请先点击右上角【答题获植物】，获得植物卡片后才能开始游戏！'), 500);
 }
 
-function updateScore(addScore) {
+/* ================= 排行榜相关 ================= */
+async function fetchLeaderboard() {
+  const { data, error } = await supabase.rpc('get_top_scores', { p_limit: 20, p_offset: 0 });
+  if (error) return;
+  const ul = $('leaderboard');
+  ul.innerHTML = '';
+  (data || []).forEach((player, index) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${index + 1}. ${player.name} (${player.class})</span> <span>${player.score}分</span>`;
+    ul.appendChild(li);
+  });
+}
+
+async function updateScore(addScore) {
   state.score += addScore;
   $('uiScore').textContent = state.score;
-  const board = initLeaderboard();
-  const me = board.find(p => p.name === state.name && p.class === state.class);
-  if (me) me.score = state.score;
-  localStorage.setItem('pvz_leaderboard', JSON.stringify(board));
+  await supabase.rpc('submit_score', { p_name: state.name, p_class: state.class, p_score: state.score });
 }
 
 /* ================= 答题系统 ================= */
-let currentQ = null, selectedOpts = new Set(), isAnswering = false;
-let qPool = [];
+let currentQ = null, selectedOpts = new Set(), isAnswering = false, qPool = [];
 
 function openQuiz() {
   if (state.zombies.length > 0) {
     if (!confirm('游戏正在进行中，答题会暂停游戏。是否继续？')) return;
   }
   state.isPlaying = false; 
-  
   if (qPool.length === 0) {
     qPool = QUESTIONS.map((_, i) => i).sort(() => Math.random() - 0.5);
   }
@@ -344,7 +393,8 @@ function submitAnswer() {
       updateScore(20);
       showBlindbox();
     } else {
-      // 答错惩罚：僵尸加速 +0.1
+      // 答错记录错题并增加僵尸速度
+      state.wrongQuestions.push(currentQ);
       state.speedBonus += 0.1;
       $('uiSpeedBonus').textContent = '+' + state.speedBonus.toFixed(1);
       
@@ -387,11 +437,7 @@ function openBlindbox() {
     
     setTimeout(() => {
       $('blindboxModal').classList.remove('active');
-      if (isFirstTime) {
-        showPlantInfo(randType); 
-      } else {
-        resumeGame();
-      }
+      if (isFirstTime) { showPlantInfo(randType); } else { resumeGame(); }
     }, 2000);
   }, 800);
 }
@@ -429,10 +475,7 @@ function renderCards() {
     const div = document.createElement('div');
     div.className = 'card' + (state.selectedCardId === c.id ? ' selected' : '');
     div.innerHTML = `<div class="emoji">${p.emoji}</div><div class="name">${p.name}</div>`;
-    div.onclick = () => {
-      state.selectedCardId = c.id;
-      renderCards();
-    };
+    div.onclick = () => { state.selectedCardId = c.id; renderCards(); };
     area.appendChild(div);
   });
 }
@@ -446,20 +489,14 @@ lawn.onclick = (e) => {
   const row = Math.floor(y / (rect.height / ROWS));
   
   if (state.plants.find(p => p.row === row && p.col === col)) return;
-  
   const cardIdx = state.cards.findIndex(c => c.id === state.selectedCardId);
   if (cardIdx === -1) return;
   
   const type = state.cards[cardIdx].type;
-  const newPlant = {
-    id: Date.now() + Math.random(),
-    type, row, col,
-    hp: PLANT_TYPES[type].hp,
-    maxHp: PLANT_TYPES[type].hp,
-    cd: 0
-  };
-  state.plants.push(newPlant);
-  
+  state.plants.push({
+    id: Date.now() + Math.random(), type, row, col,
+    hp: PLANT_TYPES[type].hp, maxHp: PLANT_TYPES[type].hp, cd: 0
+  });
   state.cards.splice(cardIdx, 1);
   state.selectedCardId = null;
   renderCards();
@@ -471,12 +508,10 @@ function gameLoop(timestamp) {
   if (!state.lastTime) state.lastTime = timestamp;
   let dt = (timestamp - state.lastTime) / 1000;
   state.lastTime = timestamp;
-  
   if (dt > 0.1) dt = 0.1;
   
   update(dt);
   render();
-  
   requestAnimationFrame(gameLoop);
 }
 
@@ -492,12 +527,10 @@ function update(dt) {
     }
   }
   
-  // 2. 更新僵尸（加入累计速度加成）
+  // 2. 僵尸移动与攻击
   for (let i = state.zombies.length - 1; i >= 0; i--) {
     let z = state.zombies[i];
     if (z.slowTimer > 0) z.slowTimer -= dt;
-    
-    // 实际速度 = 基础速度 + 答错惩罚速度，再乘寒冰减速
     let currentBaseSpeed = z.speed + state.speedBonus;
     let speed = z.slowTimer > 0 ? currentBaseSpeed * 0.8 : currentBaseSpeed;
     
@@ -509,9 +542,7 @@ function update(dt) {
       if (z.attackTimer <= 0) {
         z.attackTimer = 1.0;
         plant.hp -= 1;
-        if (plant.hp <= 0) {
-          state.plants = state.plants.filter(p => p.id !== plant.id);
-        }
+        if (plant.hp <= 0) state.plants = state.plants.filter(p => p.id !== plant.id);
       }
     } else {
       z.x -= speed * dt;
@@ -521,10 +552,7 @@ function update(dt) {
           $('mower-' + z.row).classList.add('empty');
           state.zombies = state.zombies.filter(zz => zz.row !== z.row);
           break;
-        } else {
-          gameOver(false);
-          return;
-        }
+        } else { gameOver(false); return; }
       }
     }
   }
@@ -539,23 +567,16 @@ function update(dt) {
         let target = targets[0];
         
         if (p.type === 'cannon') {
-          target.hp -= 100;
-          p.cd = 10;
-          let ex = document.createElement('div');
-          ex.className = 'explosion';
-          ex.textContent = '💥';
-          ex.style.left = (target.x * (100/9)) + '%';
-          ex.style.top = (target.row * 20) + '%';
-          lawn.appendChild(ex);
-          setTimeout(() => ex.remove(), 300);
+          target.hp -= 100; p.cd = 10;
+          let ex = document.createElement('div'); ex.className = 'explosion'; ex.textContent = '💥';
+          ex.style.left = (target.x * (100/9)) + '%'; ex.style.top = (target.row * 20) + '%';
+          lawn.appendChild(ex); setTimeout(() => ex.remove(), 300);
         } else if (p.type === 'wallnut') {
           // 坚果不攻击
         } else {
           state.bullets.push({
-            id: Date.now() + Math.random(),
-            row: p.row, x: p.col + 0.5,
-            dmg: PLANT_TYPES[p.type].dmg,
-            freeze: PLANT_TYPES[p.type].freeze || false,
+            id: Date.now() + Math.random(), row: p.row, x: p.col + 0.5,
+            dmg: PLANT_TYPES[p.type].dmg, freeze: PLANT_TYPES[p.type].freeze || false,
             emoji: p.type === 'cornpult' ? '🌽' : (p.type === 'snowpea' ? '❄️' : '🟢')
           });
           p.cd = PLANT_TYPES[p.type].cooldown;
@@ -569,11 +590,9 @@ function update(dt) {
     }
   });
   
-  // 4. 更新子弹
+  // 4. 子弹移动
   for (let i = state.bullets.length - 1; i >= 0; i--) {
-    let b = state.bullets[i];
-    b.x += 10 * dt;
-    
+    let b = state.bullets[i]; b.x += 10 * dt;
     let hit = false;
     for (let z of state.zombies) {
       if (z.row === b.row && b.x >= z.x && b.x <= z.x + 0.8) {
@@ -590,72 +609,127 @@ function update(dt) {
     if (hit || b.x > 9.5) state.bullets.splice(i, 1);
   }
   
-  // 5. 胜利判定
-  if (state.spawnedZombies >= 20 && state.zombies.length === 0) {
-    gameOver(true);
-  }
+  if (state.spawnedZombies >= 20 && state.zombies.length === 0) gameOver(true);
 }
 
 function spawnZombie() {
   const row = Math.floor(Math.random() * 5);
-  const isCone = Math.random() < 0.3;
-  const type = isCone ? 'cone' : 'normal';
+  const rand = Math.random();
+  let type = 'normal';
+  // 概率分布：普通 50%，路障 30%，铁桶 15%，橄榄球 5%
+  if (rand > 0.95) type = 'football';
+  else if (rand > 0.80) type = 'bucket';
+  else if (rand > 0.50) type = 'cone';
+  
   state.zombies.push({
-    id: Date.now() + Math.random(),
-    row, x: 9.5,
-    hp: ZOMBIE_TYPES[type].hp,
-    maxHp: ZOMBIE_TYPES[type].hp,
-    speed: ZOMBIE_TYPES[type].speed, // 基础速度存入，更新时再加惩罚
-    emoji: ZOMBIE_TYPES[type].emoji,
+    id: Date.now() + Math.random(), row, x: 9.5,
+    hp: ZOMBIE_TYPES[type].hp, maxHp: ZOMBIE_TYPES[type].hp,
+    speed: ZOMBIE_TYPES[type].speed, emoji: ZOMBIE_TYPES[type].emoji,
     slowTimer: 0, attackTimer: 0
   });
 }
 
 function render() {
-  let plantsHtml = '';
+  let plantsHtml = '', zombiesHtml = '', bulletsHtml = '';
   state.plants.forEach(p => {
-    plantsHtml += `<div class="plant" style="left:${p.col * (100/9)}%; top:${p.row * 20}%">
-      <div style="font-size:28px">${PLANT_TYPES[p.type].emoji}</div>
-    </div>`;
+    plantsHtml += `<div class="plant" style="left:${p.col * (100/9)}%; top:${p.row * 20}%"><div style="font-size:28px">${PLANT_TYPES[p.type].emoji}</div></div>`;
   });
-  
-  let zombiesHtml = '';
   state.zombies.forEach(z => {
     const hpPct = Math.max(0, z.hp / z.maxHp * 100);
     zombiesHtml += `<div class="zombie ${z.slowTimer > 0 ? 'slowed' : ''}" style="left:${z.x * (100/9)}%; top:${z.row * 20}%">
-      <div class="hp-bar"><div class="hp-fill" style="width:${hpPct}%"></div></div>
-      <div>${z.emoji}</div>
-    </div>`;
+      <div class="hp-bar"><div class="hp-fill" style="width:${hpPct}%"></div></div><div>${z.emoji}</div></div>`;
   });
-  
-  let bulletsHtml = '';
   state.bullets.forEach(b => {
     bulletsHtml += `<div class="bullet" style="left:${b.x * (100/9)}%; top:${b.row * 20}%">${b.emoji}</div>`;
   });
   
   let container = $('entityLayer');
   if (!container) {
-    container = document.createElement('div');
-    container.id = 'entityLayer';
+    container = document.createElement('div'); container.id = 'entityLayer';
     container.style.cssText = 'position:absolute; inset:0; pointer-events:none;';
     lawn.appendChild(container);
   }
   container.innerHTML = plantsHtml + zombiesHtml + bulletsHtml;
 }
 
-function gameOver(isWin) {
+/* ================= 结算与错题上传 ================= */
+async function gameOver(isWin) {
   state.isPlaying = false;
-  if (isWin) {
-    alert(`🎉 挑战成功！你抵御了 20 波僵尸！\n最终得分：${state.score}`);
+  
+  // 1. 结算界面展示
+  $('resultTitle').textContent = isWin ? '🎉 挑战成功！' : '💀 僵尸吃掉了你的脑子！';
+  $('resultTitle').style.color = isWin ? '#4caf50' : '#e53935';
+  $('resultScore').textContent = `最终得分：${state.score}`;
+  
+  const wrongArea = $('wrongQuestionsArea');
+  if (state.wrongQuestions.length === 0) {
+    wrongArea.innerHTML = '<div style="text-align:center; color:#888;">本局全对，太棒啦！</div>';
   } else {
-    alert(`💀 僵尸吃掉了你的脑子！游戏失败。\n最终得分：${state.score}`);
+    wrongArea.innerHTML = '<h4 style="margin:0 0 10px 0; color:#e53935;">本局错题回顾：</h4>';
+    state.wrongQuestions.forEach((q, idx) => {
+      let imgHtml = '';
+      if (q.image) {
+        imgHtml = `<img src="${q.image}.png" onerror="this.src='${q.image}.jpg'">`;
+      }
+      wrongArea.innerHTML += `
+        <div class="wrong-q-item">
+          <div class="wrong-q-title">${idx + 1}. ${q.q}</div>
+          ${imgHtml}
+          <div style="color:#4caf50; font-weight:bold;">正确答案：${q.answer.map(i => String.fromCharCode(65 + i)).join('')}</div>
+        </div>
+      `;
+    });
   }
-  location.reload();
+  $('resultModal').classList.add('active');
+  
+  // 2. 将错题上传到云端
+  if (state.wrongQuestions.length > 0) {
+    const records = state.wrongQuestions.map(q => ({
+      student_name: state.name,
+      student_class: state.class,
+      question_text: q.q,
+      options: q.options.join(' | '),
+      correct_answer: q.answer.map(i => String.fromCharCode(65 + i)).join('')
+    }));
+    await supabase.from('wrong_questions').insert(records);
+  }
 }
 
-window.onload = () => {
-  initLeaderboard();
-};
+/* ================= 教师端后台逻辑 ================= */
+async function loadTeacherData() {
+  const tbody = $('teacherDataBody');
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">正在加载数据...</td></tr>';
+  
+  const { data, error } = await supabase
+    .from('wrong_questions')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(200); // 只看最近200条
+
+  if (error) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:red;">加载失败，请检查网络</td></tr>';
+    return;
+  }
+  
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">暂无学生错题记录</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = '';
+  data.forEach(row => {
+    const date = new Date(row.created_at).toLocaleString();
+    tbody.innerHTML += `
+      <tr>
+        <td>${date}</td>
+        <td>${row.student_class}</td>
+        <td>${row.student_name}</td>
+        <td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${row.question_text}">${row.question_text}</td>
+        <td style="color:#4caf50; font-weight:bold;">${row.correct_answer}</td>
+      </tr>
+    `;
+  });
+}
 </script>
 </body>
 </html>
