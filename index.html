@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>PvZ 物理防御战</title>
 <script src="https://cdn.jsdelivr.net.cn/npm/@supabase/supabase-js@2"></script>
+<!-- 引入 PPT 生成库 -->
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; user-select: none; }
   body { margin: 0; background: #2c3e20; color: #333; display: flex; justify-content: center; min-height: 100vh; }
@@ -16,13 +18,11 @@
   .login-box input { width: 100%; padding: 12px; margin-bottom: 16px; border-radius: 8px; border: 2px solid #4a3523; font-size: 16px; background: #f4f1ea; outline: none; }
   .login-btn { width: 100%; padding: 14px; border: none; border-radius: 8px; background: #4caf50; color: #fff; font-size: 18px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 0 #2e7d32; margin-bottom: 10px;}
   .login-btn:active { transform: translateY(4px); box-shadow: none; }
-  
   .level-btn { background: #2196f3; box-shadow: 0 4px 0 #1565c0; }
 
   /* 主界面 */
   #gameScreen { display: none; width: 100%; max-width: 900px; padding: 10px; flex-direction: column; gap: 10px; background: #4e7c35; min-height: 100vh; }
   #gameScreen.active { display: flex; }
-  
   .top-bar { display: flex; justify-content: space-between; align-items: center; background: #3a2210; padding: 8px 16px; border-radius: 12px; border: 2px solid #ffd166; color: #fff; font-size: 14px; flex-wrap: wrap; gap: 8px;}
   .top-bar span { color: #ffd166; font-weight: bold; }
   .quiz-btn { background: #ff9800; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #e65100; font-size: 14px; }
@@ -74,7 +74,6 @@
   @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-10px) rotate(-5deg)} 75%{transform:translateX(10px) rotate(5deg)} }
   
   .plant-info-card { width: 90%; max-width: 340px; background: #f4f1ea; border-radius: 16px; padding: 30px 20px; text-align: center; border: 6px solid #7b5b3f; }
-
   .sidebar { width: 100%; max-width: 280px; margin: 0 auto; background: rgba(30,40,20,0.85); border-radius: 12px; padding: 15px; border: 2px solid #4e7c35; color: #fff;}
   .sidebar h3 { margin: 0 0 10px; color: #ffd166; text-align: center; font-size: 16px; border-bottom: 1px solid #4e7c35; padding-bottom: 8px;}
   #leaderboard { list-style: none; padding: 0; margin: 0; font-size: 13px;}
@@ -89,16 +88,26 @@
   .wrong-q-title { font-weight: bold; margin-bottom: 6px; line-height: 1.4;}
   
   /* 教师端 */
-  #teacherScreen { display: none; width: 100%; max-width: 900px; padding: 20px; background: #fff; min-height: 100vh; flex-direction: column; }
+  #teacherScreen { display: none; width: 100%; max-width: 1000px; padding: 20px; background: #fff; min-height: 100vh; flex-direction: column; }
   #teacherScreen.active { display: flex; }
   .teacher-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-bottom: 20px;}
   .teacher-tabs { display: flex; gap: 10px; margin-bottom: 15px; }
-  .tab-btn { padding: 10px 20px; border: none; background: #ddd; cursor: pointer; border-radius: 8px 8px 0 0; font-weight: bold; }
+  .tab-btn { padding: 10px 20px; border: none; background: #ddd; cursor: pointer; border-radius: 8px 8px 0 0; font-weight: bold; font-size: 15px;}
   .tab-btn.active { background: #2196f3; color: #fff; }
   .teacher-table { width: 100%; border-collapse: collapse; margin-top: 10px; display: none;}
   .teacher-table.active { display: table; }
   .teacher-table th, .teacher-table td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px;}
   .teacher-table th { background: #f4f4f4; font-weight: bold; }
+  
+  /* PPT 生成列表 */
+  .ppt-list { margin-top: 15px; }
+  .ppt-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 10px; background: #fafafa;}
+  .ppt-item-info { flex: 1; }
+  .ppt-item-title { font-weight: bold; font-size: 14px; margin-bottom: 5px; color: #333; }
+  .ppt-item-stats { font-size: 12px; color: #e53935; }
+  .ppt-checkbox { width: 20px; height: 20px; cursor: pointer; margin-left: 15px;}
+  .export-btn { margin-top: 20px; padding: 15px 30px; background: #e91e63; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 0 #ad1457; }
+  .export-btn:active { transform: translateY(4px); box-shadow: none; }
 </style>
 </head>
 <body>
@@ -131,6 +140,10 @@
     <div>⭐ 积分: <span id="uiScore">0</span></div>
     <div>🧟 进度: <span id="zombieProgress">0/20</span></div>
     <div>⚡ 僵尸加速: <span id="uiSpeedBonus" style="color:#ff5a5a;">+0.0</span></div>
+    
+    <!-- 音乐开关按钮 -->
+    <button id="musicBtn" class="quiz-btn" style="background:#2196f3; box-shadow:0 3px 0 #1565c0;" onclick="toggleMusic()">🎵 音乐开</button>
+    
     <button class="quiz-btn" onclick="openQuiz()">📝 答题获植物</button>
     <button id="feedbackBtn" class="quiz-btn" style="background:#9c27b0; box-shadow:0 3px 0 #6a1b9a; display:none;" onclick="openFeedback()">📝 写小纸条</button>
   </div>
@@ -213,12 +226,27 @@
   </div>
   <div class="teacher-tabs">
     <button class="tab-btn active" onclick="switchTab('wrong')">学生错题本</button>
+    <button class="tab-btn" onclick="switchTab('ppt')">重点讲解(PDF)</button>
     <button class="tab-btn" onclick="switchTab('feedback')">学生意见箱</button>
   </div>
+  
+  <!-- 错题本 -->
   <table class="teacher-table active" id="table-wrong">
-    <thead><tr><th>时间</th><th>班级</th><th>姓名</th><th>错题题干</th><th>正确答案</th></tr></thead>
-    <tbody id="teacherWrongBody"><tr><td colspan="5" style="text-align:center;">加载中...</td></tr></tbody>
+    <thead><tr><th>时间</th><th>班级</th><th>姓名</th><th>错题题干</th><th>答题时长</th><th>修改次数</th></tr></thead>
+    <tbody id="teacherWrongBody"><tr><td colspan="6" style="text-align:center;">加载中...</td></tr></tbody>
   </table>
+
+  <!-- 重点讲解(PDF) -->
+  <div id="table-ppt" class="teacher-table">
+    <h3>📌 错误率 > 50% 的高频错题 (已剔除无效数据)</h3>
+    <p style="font-size:13px; color:#666;">* 无效数据指：秒选(小于3秒)的错题，这类属于蒙错，无讲解价值。</p>
+    <div class="ppt-list" id="pptList">
+      <div style="text-align:center; padding:20px;">正在计算...</div>
+    </div>
+    <button class="export-btn" onclick="exportToPPT()">📥 导出所选题目为 PPT</button>
+  </div>
+
+  <!-- 意见箱 -->
   <table class="teacher-table" id="table-feedback">
     <thead><tr><th>时间</th><th>班级</th><th>姓名</th><th>意见内容</th></tr></thead>
     <tbody id="teacherFeedbackBody"><tr><td colspan="4" style="text-align:center;">加载中...</td></tr></tbody>
@@ -226,6 +254,71 @@
 </div>
 
 <script>
+/* ================= 背景音乐引擎 (Web Audio API) ================= */
+let audioCtx = null;
+let musicInterval = null;
+let isMusicMuted = false;
+
+// 简单的 8-bit 欢快游戏旋律 (C大调)
+const notes = [
+  523.25, 523.25, 659.25, 783.99, 523.25, 523.25, 659.25, 783.99, 
+  440.00, 440.00, 554.37, 659.25, 440.00, 440.00, 554.37, 659.25, 
+  493.88, 493.88, 587.33, 739.99, 493.88, 493.88, 587.33, 739.99, 
+  523.25, 523.25, 659.25, 783.99, 523.25, 659.25, 783.99, 1046.50 
+];
+let currentNoteIndex = 0;
+
+function initMusic() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playNextNote() {
+  if (isMusicMuted || !audioCtx || audioCtx.state === 'suspended') return;
+  
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  
+  osc.type = 'square'; // 8-bit 音色
+  osc.frequency.value = notes[currentNoteIndex];
+  
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  
+  const now = audioCtx.currentTime;
+  gain.gain.setValueAtTime(0.03, now); // 控制音量，避免太吵
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  
+  osc.start(now);
+  osc.stop(now + 0.15);
+  
+  currentNoteIndex = (currentNoteIndex + 1) % notes.length;
+}
+
+function startMusic() {
+  if (musicInterval) clearInterval(musicInterval);
+  initMusic();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  
+  // 200ms 一个音符，大约 150 BPM
+  musicInterval = setInterval(playNextNote, 200);
+}
+
+function toggleMusic() {
+  isMusicMuted = !isMusicMuted;
+  const btn = document.getElementById('musicBtn');
+  if (isMusicMuted) {
+    btn.textContent = '🔇 音乐关';
+    btn.style.background = '#777';
+    btn.style.boxShadow = '0 3px 0 #444';
+  } else {
+    btn.textContent = '🎵 音乐开';
+    btn.style.background = '#2196f3';
+    btn.style.boxShadow = '0 3px 0 #1565c0';
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+}
+
 /* ================= Supabase 初始化 ================= */
 const SUPABASE_URL = 'https://vpojsqmoxwyexainqizx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_TyhcbLf7tSwpqpuxvmzEpQ_L8xBDFv0';
@@ -252,7 +345,6 @@ const ZOMBIE_TYPES = {
   girl:   { name: '小妹妹僵尸', emoji: '👧', hp: 700, speed: 0.3 }
 };
 
-// 逐字核对 Sheet1 的 20 题
 const QUESTIONS_L1 = [
   { q: '如图所示为A、B两人在同一直线上运动的位移图像，下列关于图像的分析正确的是', options: ['0~2s内，A、B两人同向而行', '0~2s内，A、B两人相遇一次', '0~5s内，A走的路程比B走的路程多', '0~5s内，A的位移比B的位移大'], answer: [1, 3], multi: true, image: 'q1' },
   { q: '一物体从静止开始在平直的路面上做匀加速直线运动,将此时刻记为t=0时刻,其速度的二次方v²随位移x变化的关系可用如图所示的v²-x图像表示。关于该物体的运动,下列说法正确的是', options: ['物体的加速度为2 m/s²', '物体从0到12 m所用的时间为4 s', '物体在0~12 m内的平均速度为6 m/s', '物体在t=6 s时的速度大小为10 m/s'], answer: [1], multi: false, image: 'q2' },
@@ -276,7 +368,6 @@ const QUESTIONS_L1 = [
   { q: '如图所示，质量为m的木块在质量为M的长木板上滑行，木板与地面间的动摩擦因数为μ1，木块与木板间的动摩擦因数为μ2，重力加速度为g，木板一直静止，那么木块与木板间、木板与地面间的摩擦力大小分别为', options: ['μ2mg  μ1Mg', 'μ2mg  μ2mg', 'μ2mg  μ1(M+m)g', 'μ2mg  μ1Mg+μ2mg'], answer: [1], multi: false, image: 'q12' }
 ];
 
-// 逐字核对 Sheet2 的 18 题
 const QUESTIONS_L2 = [
   { q: '如图所示，小明手握酱油瓶，酱油瓶瓶身竖直，使酱油瓶在水平面内做匀速直线运动，下列说法正确的是', options: ['手对酱油瓶的弹力是由酱油瓶发生弹性形变产生的', '手对酱油瓶的摩擦力和酱油瓶受到的重力是一对平衡力', '酱油瓶受到的摩擦力大小一定与手对酱油瓶的弹力成正比', '酱油瓶受到的重力和酱油瓶对手的摩擦力是一对相互作用力'], answer: [1], multi: false, image: 'q13' },
   { q: '如图所示，物体A,B叠放在粗糙水平面上，用绳子水平拉物体B，力的大小为F，该力使A随B一起向右做匀速直线运动，则与物体B发生作用与反作用的力有', options: ['三对', '四对', '五对', '六对'], answer: [2], multi: false, image: 'q14' },
@@ -367,7 +458,10 @@ function startGame(level) {
 
   fetchLeaderboard();
   setInterval(fetchLeaderboard, 10000);
-
+  
+  // 用户点击开始游戏后，允许播放音乐
+  startMusic();
+  
   setTimeout(() => alert('欢迎来到物理草坪！请先点击右上角【答题获植物】，获得植物卡片后才能开始游戏！'), 500);
 }
 
@@ -392,9 +486,8 @@ async function submitFeedback() {
 
   btn.disabled = false; btn.textContent = '发送给老师';
 
-  if (error) {
-    alert('发送失败，请检查网络！');
-  } else {
+  if (error) alert('发送失败，请检查网络！');
+  else {
     alert('小纸条已成功发送给老师！');
     $('feedbackModal').classList.remove('active');
   }
@@ -419,8 +512,9 @@ async function updateScore(addScore) {
   await dbClient.rpc('submit_score', { p_name: state.name, p_class: state.class, p_score: state.score });
 }
 
-/* ================= 答题系统 ================= */
+/* ================= 答题系统(含时长与修改次数) ================= */
 let currentQ = null, selectedOpts = new Set(), isAnswering = false, qPool = [];
+let quizStartTime = 0, quizModifyCount = 0;
 
 function openQuiz() {
   if (state.zombies.length > 0) {
@@ -434,6 +528,9 @@ function openQuiz() {
   }
   currentQ = questions[qPool.pop()];
   selectedOpts.clear(); isAnswering = false;
+  
+  quizStartTime = Date.now(); // 记录开始时间
+  quizModifyCount = 0;        // 重置修改次数
   
   $('quizQuestion').textContent = currentQ.q;
   const img = $('quizImage');
@@ -463,6 +560,7 @@ function openQuiz() {
 function onOptClick(i, btn) {
   if (isAnswering) return;
   if (currentQ.multi) {
+    quizModifyCount++; // 多选题点击都算一次修改
     if (selectedOpts.has(i)) { selectedOpts.delete(i); btn.classList.remove('selected'); }
     else { selectedOpts.add(i); btn.classList.add('selected'); }
     $('quizSubmit').disabled = selectedOpts.size === 0;
@@ -475,6 +573,8 @@ function onOptClick(i, btn) {
 function submitAnswer() {
   if (isAnswering || selectedOpts.size === 0) return;
   isAnswering = true;
+  
+  const timeSpent = Math.floor((Date.now() - quizStartTime) / 1000); // 答题时长(秒)
   
   const isCorrect = selectedOpts.size === currentQ.answer.length && currentQ.answer.every(i => selectedOpts.has(i));
   const btns = [...$('quizOptions').children];
@@ -491,7 +591,13 @@ function submitAnswer() {
       showBlindbox();
     } else {
       state.totalWrong++;
-      state.wrongQuestions.push(currentQ);
+      // 存入错题本，记录时长和修改次数
+      state.wrongQuestions.push({
+        ...currentQ,
+        timeSpent: timeSpent,
+        modifyCount: quizModifyCount
+      });
+      
       state.speedBonus += 0.1;
       $('uiSpeedBonus').textContent = '+' + state.speedBonus.toFixed(1);
       alert(`答错了！没有获得植物。\n⚠️ 僵尸被激怒了，移动速度永久增加 0.1 格/秒！`);
@@ -830,7 +936,9 @@ async function gameOver(isWin) {
       student_class: state.class,
       question_text: q.q,
       options: q.options.join(' | '),
-      correct_answer: q.answer.map(i => String.fromCharCode(65 + i)).join('')
+      correct_answer: q.answer.map(i => String.fromCharCode(65 + i)).join(''),
+      time_spent: q.timeSpent,
+      modify_count: q.modifyCount
     }));
     await dbClient.from('wrong_questions').insert(records);
   }
@@ -844,28 +952,40 @@ function switchTab(tab) {
   if (tab === 'wrong') {
     document.querySelectorAll('.tab-btn')[0].classList.add('active');
     $('table-wrong').classList.add('active');
-  } else {
+  } else if (tab === 'ppt') {
     document.querySelectorAll('.tab-btn')[1].classList.add('active');
+    $('table-ppt').classList.add('active');
+    renderPPTList();
+  } else {
+    document.querySelectorAll('.tab-btn')[2].classList.add('active');
     $('table-feedback').classList.add('active');
   }
 }
 
+let allTeacherWrongData = [];
+
 async function loadTeacherData() {
   const tbodyWrong = $('teacherWrongBody');
-  tbodyWrong.innerHTML = '<tr><td colspan="5" style="text-align:center;">加载中...</td></tr>';
-  const { data: dataWrong } = await dbClient.from('wrong_questions').select('*').order('created_at', { ascending: false }).limit(200);
+  tbodyWrong.innerHTML = '<tr><td colspan="6" style="text-align:center;">加载中...</td></tr>';
   
-  if (!dataWrong || dataWrong.length === 0) {
-    tbodyWrong.innerHTML = '<tr><td colspan="5" style="text-align:center;">暂无错题</td></tr>';
+  const { data: dataWrong } = await dbClient.from('wrong_questions').select('*').order('created_at', { ascending: false }).limit(1000);
+  allTeacherWrongData = dataWrong || [];
+  
+  if (allTeacherWrongData.length === 0) {
+    tbodyWrong.innerHTML = '<tr><td colspan="6" style="text-align:center;">暂无错题</td></tr>';
   } else {
     tbodyWrong.innerHTML = '';
-    dataWrong.forEach(row => {
+    allTeacherWrongData.forEach(row => {
       const date = new Date(row.created_at).toLocaleString();
+      let timeStr = row.time_spent !== null ? `${row.time_spent}秒` : '-';
+      let modStr = row.modify_count !== null ? `${row.modify_count}次` : '-';
+      
       tbodyWrong.innerHTML += `
         <tr>
           <td>${date}</td><td>${row.student_class}</td><td>${row.student_name}</td>
           <td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${row.question_text}">${row.question_text}</td>
-          <td style="color:#4caf50; font-weight:bold;">${row.correct_answer}</td>
+          <td style="color:${row.time_spent < 3 ? 'red' : (row.time_spent > 60 ? 'orange':'green')}">${timeStr}</td>
+          <td>${modStr}</td>
         </tr>
       `;
     });
@@ -889,6 +1009,86 @@ async function loadTeacherData() {
       `;
     });
   }
+}
+
+/* ================= 数据清洗与 PPT 生成 ================= */
+let validPptQuestions = []; 
+
+function renderPPTList() {
+  const listEl = $('pptList');
+  listEl.innerHTML = '';
+  
+  if (allTeacherWrongData.length === 0) {
+    listEl.innerHTML = '<div style="text-align:center; padding:20px;">暂无数据</div>';
+    return;
+  }
+
+  // 1. 数据清洗：剔除 time_spent < 3 秒的无效猜测数据
+  const validData = allTeacherWrongData.filter(r => r.time_spent >= 3);
+  
+  // 2. 统计错误次数
+  const errorCounts = {};
+  validData.forEach(row => {
+    if (!errorCounts[row.question_text]) errorCounts[row.question_text] = { count: 0, options: row.options, correct: row.correct_answer };
+    errorCounts[row.question_text].count++;
+  });
+
+  const sortedQuestions = Object.keys(errorCounts).map(q => {
+    return { question: q, ...errorCounts[q] };
+  }).sort((a, b) => b.count - a.count);
+
+  validPptQuestions = sortedQuestions.filter(q => q.count >= 2).slice(0, 15); 
+
+  if (validPptQuestions.length === 0) {
+    listEl.innerHTML = '<div style="text-align:center; padding:20px;">目前没有错误率极高的题目(已过滤3秒内秒选)。</div>';
+    return;
+  }
+
+  validPptQuestions.forEach((qData, idx) => {
+    const div = document.createElement('div');
+    div.className = 'ppt-item';
+    div.innerHTML = `
+      <div class="ppt-item-info">
+        <div class="ppt-item-title">${idx + 1}. ${qData.question}</div>
+        <div class="ppt-item-stats">累计错误次数：${qData.count} 次 | 正确答案：${qData.correct}</div>
+      </div>
+      <input type="checkbox" class="ppt-checkbox" value="${idx}" checked>
+    `;
+    listEl.appendChild(div);
+  });
+}
+
+function exportToPPT() {
+  if (validPptQuestions.length === 0) return alert('没有可导出的题目！');
+
+  const checkboxes = document.querySelectorAll('.ppt-checkbox:checked');
+  if (checkboxes.length === 0) return alert('请至少勾选一道题目！');
+
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_16x9';
+
+  checkboxes.forEach(cb => {
+    const qData = validPptQuestions[cb.value];
+    
+    const slide = pptx.addSlide();
+    
+    slide.addText("重点错题讲解", { x: 0.5, y: 0.2, w: 9, h: 0.5, fontSize: 24, bold: true, color: "e53935" });
+    slide.addText(`题目：${qData.question}`, { x: 0.5, y: 1.0, w: 9, h: 1.5, fontSize: 18, color: "333333", wrap: true });
+    
+    const optsArr = qData.options.split(' | ');
+    let optText = "";
+    optsArr.forEach((opt, i) => {
+      optText += `${String.fromCharCode(65 + i)}. ${opt}\n`;
+    });
+    slide.addText(optText, { x: 0.5, y: 2.8, w: 9, h: 2.0, fontSize: 16, color: "555555" });
+    
+    slide.addText(`正确答案：${qData.correct}`, { x: 0.5, y: 5.0, w: 9, h: 0.5, fontSize: 20, bold: true, color: "4caf50" });
+    slide.addText(`⚠️ 该题全班累计做错 ${qData.count} 次，请重点分析！`, { x: 0.5, y: 5.5, w: 9, h: 0.5, fontSize: 16, color: "e53935" });
+    
+    slide.addText("讲解思路：（老师在此补充）", { x: 0.5, y: 6.0, w: 9, h: 0.5, fontSize: 14, color: "999999", italic: true });
+  });
+
+  pptx.writeFile({ fileName: "物理错题讲解_自动生成.pptx" });
 }
 </script>
 </body>
