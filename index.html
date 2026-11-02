@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -27,7 +28,7 @@
   .top-bar span { color: #ffd166; font-weight: bold; }
   .quiz-btn { background: #ff9800; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #e65100; font-size: 14px; }
   
-  .pk-info-bar { display: flex; justify-content: space-between; background: #111; padding: 10px; border-radius: 12px; color: #fff; font-weight: bold; border: 2px solid #e91e63;}
+  .pk-info-bar { display: flex; justify-content: space-between; align-items: center; background: #111; padding: 10px; border-radius: 12px; color: #fff; font-weight: bold; border: 2px solid #e91e63;}
   .pk-side-info { text-align: center; flex: 1;}
 
   .card-area { display: flex; gap: 8px; background: #7b5b3f; padding: 8px; border-radius: 12px; min-height: 70px; overflow-x: auto; align-items: center; }
@@ -156,10 +157,11 @@
     <button id="feedbackBtn" class="quiz-btn" style="background:#9c27b0; display:none;" onclick="openFeedback()">📝 写小纸条 (<span id="feedbackChances">0</span>)</button>
   </div>
 
+  <!-- PK 模式顶栏：双方各自有答题按钮 -->
   <div id="pkTopBar" class="pk-info-bar" style="display:none;">
-    <div class="pk-side-info" id="pkPlayer1Info">玩家1 (植物)</div>
-    <div style="font-size:24px; line-height:1;">VS</div>
-    <div class="pk-side-info" id="pkPlayer2Info">玩家2 (僵尸)</div>
+    <div class="pk-side-info" id="pkPlayer1Info">房主(植物) HP:100</div>
+    <button class="quiz-btn" style="background:#ff9800; font-size:16px; padding:12px 24px;" onclick="openPKQuiz()">📝 答题开盲盒</button>
+    <div class="pk-side-info" id="pkPlayer2Info">客机(僵尸) 剩余:30</div>
   </div>
 
   <div class="card-area" id="cardArea">
@@ -591,7 +593,6 @@ lawn.onclick = (e) => {
     state.plants.push({ id: Date.now()+Math.random(), type, row, col, hp: PLANT_TYPES[type].hp, maxHp: PLANT_TYPES[type].hp, cd: 0, plantTime: Date.now() });
     state.cards.splice(cardIdx, 1); state.selectedCardId = null; renderCards(); renderBoard();
   } else {
-    // PK 模式在第三部分处理
     if (window.pkPlaceHandler) window.pkPlaceHandler(type, row, col, cardIdx);
   }
 };
@@ -887,14 +888,11 @@ function createRoom() {
     showToast(`${payload.payload.name} 已加入！游戏开始！`);
     startPKGame(true);
   });
+  
   state.channel.on('broadcast', { event: 'guest_place' }, payload => {
     applyPKPlace(payload.payload.type, payload.payload.row, payload.payload.col);
   });
-  state.channel.on('broadcast', { event: 'guest_win' }, payload => {
-    $('quizModal').classList.remove('active');
-    showToast('客机答对了，房主没抢到！');
-    setTimeout(() => pkNextQuestion(), 1000);
-  });
+  
   state.channel.subscribe(); renderCards(); startMusic();
 }
 
@@ -909,11 +907,7 @@ function joinRoom() {
   
   state.channel = dbClient.channel('room_' + roomId);
   state.channel.on('broadcast', { event: 'start' }, () => startPKGame(false));
-  state.channel.on('broadcast', { event: 'quiz' }, payload => showPKQuiz(payload.payload));
-  state.channel.on('broadcast', { event: 'host_win' }, payload => {
-    $('quizModal').classList.remove('active');
-    showToast('房主答对了，客机没抢到！');
-  });
+  
   state.channel.on('broadcast', { event: 'sync' }, payload => {
     const s = payload.payload; 
     state.plants = s.plants; state.zombies = s.zombies; state.bullets = s.bullets;
@@ -932,7 +926,7 @@ function startPKGame(isHost) {
   state.isPlaying = true; state.lastTime = performance.now();
   if (isHost) {
     state.channel.send({ type: 'broadcast', event: 'start' });
-    pkNextQuestion(); requestAnimationFrame(pkLoop);
+    requestAnimationFrame(pkLoop);
   }
 }
 
@@ -1003,21 +997,18 @@ function updatePK(dt) {
 }
 
 let pkQPool = [];
-function pkNextQuestion() {
-  if (!state.isPlaying) return;
+function openPKQuiz() {
+  if (!state.isPlaying) return showToast('游戏未开始或已结束！');
   const allQs = [...QUESTIONS_L1, ...QUESTIONS_L2];
   if (pkQPool.length === 0) pkQPool = allQs.map((_, i) => i).sort(() => Math.random() - 0.5);
-  const q = allQs[pkQPool.pop()];
-  state.channel.send({ type: 'broadcast', event: 'quiz', payload: q });
-  showPKQuiz(q);
-}
-
-function showPKQuiz(q) {
-  currentQ = q; selectedOpts.clear(); isAnswering = false;
+  currentQ = allQs[pkQPool.pop()];
+  selectedOpts.clear(); isAnswering = false; quizStartTime = Date.now(); quizModifyCount = 0;
+  
   $('quizQuestion').textContent = currentQ.q;
   const img = $('quizImage');
   if (currentQ.image) { img.style.display = 'block'; img.src = currentQ.image + '.png'; img.onerror = function() { this.src = currentQ.image + '.jpg'; }; } 
   else { img.style.display = 'none'; }
+  
   const box = $('quizOptions'); box.innerHTML = '';
   currentQ.options.forEach((opt, i) => {
     const btn = document.createElement('button'); btn.className = 'option'; btn.textContent = String.fromCharCode(65 + i) + '. ' + opt;
@@ -1030,17 +1021,18 @@ function showPKQuiz(q) {
 window.pkAnswerHandler = function(isCorrect) {
   if (isCorrect) {
     if (state.side === 'plant') {
-      state.channel.send({ type: 'broadcast', event: 'host_win' });
-      state.cards.push({ id: Date.now(), type: 'peashooter' }); renderCards();
-      showToast('你抢到了！获得植物！');
-      setTimeout(() => pkNextQuestion(), 800);
+      const plants = ['peashooter', 'cornpult', 'snowpea', 'repeater', 'wallnut', 'cannon'];
+      const randType = plants[Math.floor(Math.random() * plants.length)];
+      state.cards.push({ id: Date.now(), type: randType }); renderCards();
+      showToast(`答对啦！获得植物：${PLANT_TYPES[randType].name}！`);
     } else {
-      state.channel.send({ type: 'broadcast', event: 'guest_win' });
-      state.cards.push({ id: Date.now(), type: 'zombie_normal' }); renderCards();
-      showToast('你抢到了！获得僵尸！');
+      const zombies = ['normal', 'cone', 'bucket', 'football', 'girl'];
+      const randType = zombies[Math.floor(Math.random() * zombies.length)];
+      state.cards.push({ id: Date.now(), type: 'zombie_' + randType }); renderCards();
+      showToast(`答对啦！获得僵尸：${ZOMBIE_TYPES[randType].name}！`);
     }
   } else {
-    showToast('答错了！机会留给对手。');
+    showToast('答错了！再试一次吧。');
   }
 };
 
@@ -1072,3 +1064,4 @@ function pkGameOver(title, msg) { state.isPlaying = false; alert(`${title}\n${ms
 </script>
 </body>
 </html>
+```
