@@ -29,7 +29,7 @@
   
   .pk-info-bar { display: flex; justify-content: space-between; background: #111; padding: 10px; border-radius: 12px; color: #fff; font-weight: bold; border: 2px solid #e91e63;}
   .pk-side-info { text-align: center; flex: 1;}
-  
+
   .card-area { display: flex; gap: 8px; background: #7b5b3f; padding: 8px; border-radius: 12px; min-height: 70px; overflow-x: auto; align-items: center; }
   .empty-cards { color: #c4b5a0; font-size: 14px; margin-left: 10px; }
   .card { width: 50px; height: 60px; background: #f4f1ea; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border: 2px solid transparent; flex-shrink: 0; overflow: hidden;}
@@ -48,8 +48,6 @@
   .plant, .zombie, .bullet, .explosion { position: absolute; width: calc(100% / 9); height: 20%; display: flex; align-items: center; justify-content: center; font-size: 28px; }
   .zombie { font-size: 32px; z-index: 10; transition: none; }
   .zombie.slowed { filter: hue-rotate(180deg); }
-  .zombie.stunned { filter: sepia(100%) hue-rotate(270deg); animation: stunShake 0.5s infinite; }
-  @keyframes stunShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-3px) rotate(-5deg)} 75%{transform:translateX(3px) rotate(5deg)} }
   .bullet { font-size: 16px; z-index: 5; transition: none; }
   
   .custom-img { width: 40px; height: 40px; image-rendering: pixelated; object-fit: cover;}
@@ -108,9 +106,14 @@
   .ppt-item-stats { font-size: 12px; color: #e53935; }
   .ppt-checkbox { width: 20px; height: 20px; cursor: pointer; margin-left: 15px;}
   .export-btn { margin-top: 20px; padding: 15px 30px; background: #e91e63; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 0 #ad1457; }
+
+  /* 顶部飘字提示 */
+  #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #fff; padding: 10px 20px; border-radius: 20px; font-weight: bold; z-index: 9999; display: none; transition: opacity 0.3s;}
 </style>
 </head>
 <body>
+
+<div id="toast"></div>
 
 <!-- 登录与大厅 -->
 <div id="loginScreen">
@@ -154,9 +157,9 @@
   </div>
 
   <div id="pkTopBar" class="pk-info-bar" style="display:none;">
-    <div class="pk-side-info" id="pkPlayer1Info">玩家1 (房主)</div>
+    <div class="pk-side-info" id="pkPlayer1Info">玩家1 (植物)</div>
     <div style="font-size:24px; line-height:1;">VS</div>
-    <div class="pk-side-info" id="pkPlayer2Info">等待玩家...</div>
+    <div class="pk-side-info" id="pkPlayer2Info">玩家2 (僵尸)</div>
   </div>
 
   <div class="card-area" id="cardArea">
@@ -267,67 +270,10 @@
   </table>
 </div>
 
+<!-- ========================================================= -->
+<!-- 第二部分：题库（修改题库只需改这里） -->
+<!-- ========================================================= -->
 <script>
-/* ================= 1. 核心初始化与音乐引擎 ================= */
-const SUPABASE_URL = 'https://vpojsqmoxwyexainqizx.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_TyhcbLf7tSwpqpuxvmzEpQ_L8xBDFv0';
-const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-let audioCtx = null, musicInterval = null, isMusicMuted = false;
-const notes = [523.25, 523.25, 659.25, 783.99, 523.25, 523.25, 659.25, 783.99, 440.00, 440.00, 554.37, 659.25, 440.00, 440.00, 554.37, 659.25, 493.88, 493.88, 587.33, 739.99, 493.88, 493.88, 587.33, 739.99, 523.25, 523.25, 659.25, 783.99, 523.25, 659.25, 783.99, 1046.50];
-let currentNoteIndex = 0;
-
-function initMusic() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-function playNextNote() {
-  if (isMusicMuted || !audioCtx || audioCtx.state === 'suspended') return;
-  const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
-  osc.type = 'square'; osc.frequency.value = notes[currentNoteIndex];
-  osc.connect(gain); gain.connect(audioCtx.destination);
-  const now = audioCtx.currentTime;
-  gain.gain.setValueAtTime(0.03, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-  osc.start(now); osc.stop(now + 0.15);
-  currentNoteIndex = (currentNoteIndex + 1) % notes.length;
-}
-function startMusic() {
-  if (musicInterval) clearInterval(musicInterval);
-  initMusic(); if (audioCtx.state === 'suspended') audioCtx.resume();
-  musicInterval = setInterval(playNextNote, 200);
-}
-function toggleMusic() {
-  isMusicMuted = !isMusicMuted;
-  const btn = document.getElementById('musicBtn');
-  if (isMusicMuted) { btn.textContent = '🔇 音乐关'; btn.style.background = '#777'; btn.style.boxShadow = '0 3px 0 #444'; }
-  else { btn.textContent = '🎵 音乐开'; btn.style.background = '#2196f3'; btn.style.boxShadow = '0 3px 0 #1565c0'; if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); }
-}
-
-/* ================= 2. 配置数据 (植物、僵尸、题库) ================= */
-const ROWS = 5, COLS = 9;
-const PLANT_TYPES = {
-  peashooter: { name: '豌豆射手', emoji: '🌱', cooldown: 1.0, dmg: 10, hp: 1, desc: '基础攻击植物。每隔 1 秒发射一颗豌豆，造成 10 点伤害。' },
-  cornpult:   { name: '玉米投手', emoji: '🌽', cooldown: 1.0, dmg: 10, hp: 1, desc: '物理抛物线攻击。每隔 1 秒投射一颗玉米，造成 10 点伤害。' },
-  snowpea:    { name: '寒冰射手', emoji: '❄️', cooldown: 1.0, dmg: 10, hp: 1, freeze: true, desc: '控制型植物。每隔 1 秒发射冰豌豆，造成伤害并减缓僵尸移动速度。' },
-  repeater:   { name: '机枪豌豆', emoji: '🌿', cooldown: 0.5, dmg: 10, hp: 1, desc: '高攻速植物。每隔 0.5 秒发射一颗豌豆，造成 10 点伤害。' },
-  wallnut:    { name: '坚果墙',   emoji: '🥜', cooldown: 0, dmg: 0, hp: 10, desc: '防御型植物。没有攻击力，但能抵挡僵尸 10 次啃咬。' },
-  cannon:     { name: '加农炮',   emoji: '💥', cooldown: 10.0, dmg: 100, hp: 1, desc: '终极武器。每隔 10 秒发射炮弹，造成 100 点伤害。' },
-  potatomine: { name: '土豆地雷', emoji: '🥔', cooldown: 0, dmg: 9999, hp: 1, desc: '种下后需要 7 秒发芽，僵尸触碰后将其炸死。' },
-  stunshroom: { name: '眩晕蘑菇', emoji: '🍄', cooldown: 0, dmg: 0, hp: 1, desc: '僵尸触碰后蘑菇消失，该僵尸眩晕 7 秒。' }
-};
-
-const ZOMBIE_TYPES = {
-  normal: { name: '普通僵尸', emoji: '🧟‍♂️', hp: 100, speed: 0.3 },
-  cone:   { name: '路障僵尸', emoji: '🧟', hp: 200, speed: 0.3 },
-  bucket: { name: '铁桶僵尸', emoji: '🪣', hp: 300, speed: 0.3 },
-  football: { name: '橄榄球僵尸', emoji: '🏈', hp: 400, speed: 0.3 },
-  girl:   { name: '小妹妹僵尸', emoji: '👧', hp: 700, speed: 0.3 }
-};
-
-try {
-  const cp = JSON.parse(localStorage.getItem('pvz_custom_plant'));
-  if (cp) PLANT_TYPES['custom_plant'] = { name: '我(植物)', emoji: '🌱', img: cp, cooldown: 1.0, dmg: 10, hp: 1, desc: '专属定制植物！攻击力与豌豆射手一致。' };
-  const cz = JSON.parse(localStorage.getItem('pvz_custom_zombie'));
-  if (cz) ZOMBIE_TYPES['custom_zombie'] = { name: '我(僵尸)', emoji: '🧟', img: cz, hp: 100, speed: 0.3 };
-} catch(e) {}
-
 const QUESTIONS_L1 = [
   { q: '如图所示为A、B两人在同一直线上运动的位移图像，下列关于图像的分析正确的是', options: ['0~2s内，A、B两人同向而行', '0~2s内，A、B两人相遇一次', '0~5s内，A走的路程比B走的路程多', '0~5s内，A的位移比B的位移大'], answer: [1, 3], multi: true, image: 'q1' },
   { q: '一物体从静止开始在平直的路面上做匀加速直线运动,将此时刻记为t=0时刻,其速度的二次方v²随位移x变化的关系可用如图所示的v²-x图像表示。关于该物体的运动,下列说法正确的是', options: ['物体的加速度为2 m/s²', '物体从0到12 m所用的时间为4 s', '物体在0~12 m内的平均速度为6 m/s', '物体在t=6 s时的速度大小为10 m/s'], answer: [1], multi: false, image: 'q2' },
@@ -371,8 +317,75 @@ const QUESTIONS_L2 = [
   { q: '如图所示，某钢制工件上开有一个楔形凹槽，凹槽的截面是一个直角三角形ABC,∠CAB= 30°,∠ABC= 90°,∠ACB =60°。在凹槽中放有一个光滑的金属球，当金属球静止时金属球对凹槽的AB边的压力为F，对BC边的压力为F2/F1的值为', options: ['46025', '√3/2', '√3/3', '√3/5'], answer: [2], multi: false, image: 'q27' },
   { q: '如图所示，将一个已知力F分解为F1和F2,已知F=10N,F1与F的夹角为37°(已知sin 37°=0.6,cos37°=0.8),则F2的大小', options: ['可能大于10N', '可能小于10N', '不可能等于10N', '最小值为8N'], answer: [0, 2], multi: true, image: 'q28' }
 ];
+</script>
 
-/* ================= 3. 全局状态 ================= */
+<!-- ========================================================= -->
+<!-- 第一部分：界面、音乐、单机模式、教师端 -->
+<!-- ========================================================= -->
+<script>
+const SUPABASE_URL = 'https://vpojsqmoxwyexainqizx.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_TyhcbLf7tSwpqpuxvmzEpQ_L8xBDFv0';
+const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let toastTimeout;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block'; t.style.opacity = '1';
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.style.display = 'none', 300); }, 2000);
+}
+
+let audioCtx = null, musicInterval = null, isMusicMuted = false;
+const notes = [523.25, 523.25, 659.25, 783.99, 523.25, 523.25, 659.25, 783.99, 440.00, 440.00, 554.37, 659.25, 440.00, 440.00, 554.37, 659.25, 493.88, 493.88, 587.33, 739.99, 493.88, 493.88, 587.33, 739.99, 523.25, 523.25, 659.25, 783.99, 523.25, 659.25, 783.99, 1046.50];
+let currentNoteIndex = 0;
+function initMusic() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function playNextNote() {
+  if (isMusicMuted || !audioCtx || audioCtx.state === 'suspended') return;
+  const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+  osc.type = 'square'; osc.frequency.value = notes[currentNoteIndex];
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
+  gain.gain.setValueAtTime(0.03, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  osc.start(now); osc.stop(now + 0.15);
+  currentNoteIndex = (currentNoteIndex + 1) % notes.length;
+}
+function startMusic() {
+  if (musicInterval) clearInterval(musicInterval);
+  initMusic(); if (audioCtx.state === 'suspended') audioCtx.resume();
+  musicInterval = setInterval(playNextNote, 200);
+}
+function toggleMusic() {
+  isMusicMuted = !isMusicMuted;
+  const btn = document.getElementById('musicBtn');
+  if (isMusicMuted) { btn.textContent = '🔇 音乐关'; btn.style.background = '#777'; btn.style.boxShadow = '0 3px 0 #444'; }
+  else { btn.textContent = '🎵 音乐开'; btn.style.background = '#2196f3'; btn.style.boxShadow = '0 3px 0 #1565c0'; if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); }
+}
+
+const ROWS = 5, COLS = 9;
+const PLANT_TYPES = {
+  peashooter: { name: '豌豆射手', emoji: '🌱', cooldown: 1.0, dmg: 10, hp: 1, desc: '每隔 1 秒发射一颗豌豆，造成 10 点伤害。' },
+  cornpult:   { name: '玉米投手', emoji: '🌽', cooldown: 1.0, dmg: 10, hp: 1, desc: '每隔 1 秒投射一颗玉米，造成 10 点伤害。' },
+  snowpea:    { name: '寒冰射手', emoji: '❄️', cooldown: 1.0, dmg: 10, hp: 1, freeze: true, desc: '每隔 1 秒发射冰豌豆，造成伤害并减缓僵尸速度。' },
+  repeater:   { name: '机枪豌豆', emoji: '🌿', cooldown: 0.5, dmg: 10, hp: 1, desc: '高攻速植物。每隔 0.5 秒发射一颗豌豆。' },
+  wallnut:    { name: '坚果墙',   emoji: '🥜', cooldown: 0, dmg: 0, hp: 10, desc: '没有攻击力，抵挡僵尸 10 次啃咬。' },
+  cannon:     { name: '加农炮',   emoji: '💥', cooldown: 10.0, dmg: 100, hp: 1, desc: '终极武器。每隔 10 秒发射炮弹，造成 100 点伤害。' },
+  potatomine: { name: '土豆地雷', emoji: '🥔', cooldown: 0, dmg: 9999, hp: 1, desc: '种下后需要 7 秒发芽，僵尸触碰后将其炸死。' },
+  stunshroom: { name: '眩晕蘑菇', emoji: '🍄', cooldown: 0, dmg: 0, hp: 1, desc: '僵尸触碰后蘑菇消失，该僵尸眩晕 7 秒。' }
+};
+const ZOMBIE_TYPES = {
+  normal: { name: '普通僵尸', emoji: '🧟‍♂️', hp: 100, speed: 0.3 },
+  cone:   { name: '路障僵尸', emoji: '🧟', hp: 200, speed: 0.3 },
+  bucket: { name: '铁桶僵尸', emoji: '🪣', hp: 300, speed: 0.3 },
+  football: { name: '橄榄球僵尸', emoji: '🏈', hp: 400, speed: 0.3 },
+  girl:   { name: '小妹妹僵尸', emoji: '👧', hp: 700, speed: 0.3 }
+};
+try {
+  const cp = JSON.parse(localStorage.getItem('pvz_custom_plant'));
+  if (cp) PLANT_TYPES['custom_plant'] = { name: '我(植物)', emoji: '🌱', img: cp, cooldown: 1.0, dmg: 10, hp: 1, desc: '专属定制植物！' };
+  const cz = JSON.parse(localStorage.getItem('pvz_custom_zombie'));
+  if (cz) ZOMBIE_TYPES['custom_zombie'] = { name: '我(僵尸)', emoji: '🧟', img: cz, hp: 100, speed: 0.3 };
+} catch(e) {}
+
 let state = {
   mode: 'single', name: '', class: '', score: 0, 
   level: 1, isPlaying: false,
@@ -390,16 +403,12 @@ let state = {
 const $ = id => document.getElementById(id);
 const lawn = $('lawn');
 
-/* ================= 4. 路由与登录 ================= */
 window.onload = () => {
   if (window.location.search.includes('teacher')) {
     document.body.style.background = '#f0f2f5';
-    $('loginScreen').style.display = 'none';
-    $('teacherScreen').classList.add('active');
-    loadTeacherData();
-    return;
+    $('loginScreen').style.display = 'none'; $('teacherScreen').classList.add('active');
+    loadTeacherData(); return;
   }
-
   let chances = parseInt(localStorage.getItem('pvz_feedback_chances') || '0');
   $('feedbackChances').textContent = chances;
   
@@ -407,16 +416,13 @@ window.onload = () => {
   if (savedUser) {
     const user = JSON.parse(savedUser);
     state.name = user.name; state.class = user.class;
-    $('loginScreen').style.display = 'none';
-    $('levelSelectScreen').style.display = 'flex';
-  } else {
-    $('loginScreen').style.display = 'flex';
-  }
+    $('loginScreen').style.display = 'none'; $('levelSelectScreen').style.display = 'flex';
+  } else { $('loginScreen').style.display = 'flex'; }
 };
 
 function login() {
   const name = $('playerName').value.trim(), cls = $('playerClass').value.trim();
-  if (!name || !cls) return alert('请填写姓名和班级！');
+  if (!name || !cls) return showToast('请填写姓名和班级！');
   state.name = name; state.class = cls;
   localStorage.setItem('pvz_user', JSON.stringify({name, class: cls}));
   $('loginScreen').style.display = 'none'; $('levelSelectScreen').style.display = 'flex';
@@ -427,7 +433,6 @@ function startGame(level) {
   $('levelSelectScreen').style.display = 'none'; $('gameScreen').classList.add('active');
   $('singleTopBar').style.display = 'flex'; $('pkTopBar').style.display = 'none'; $('sideBar').style.display = 'block';
   $('uiName').textContent = state.name;
-  
   if (level === 2) $('feedbackBtn').style.display = 'inline-block';
   
   dbClient.rpc('get_top_scores', { p_limit: 1000, p_offset: 0 }).then(({data}) => {
@@ -436,19 +441,16 @@ function startGame(level) {
   });
   fetchLeaderboard(); setInterval(fetchLeaderboard, 10000);
   startMusic();
-  setTimeout(() => alert('请先点击右上角【答题获植物】，获得植物卡片后才能开始游戏！'), 500);
+  showToast('请先点击右上角【答题获植物】开始游戏！');
 }
 
-/* ================= 5. 单机模式核心 ================= */
 function gameLoop(timestamp) {
   if (state.mode !== 'single' || !state.isPlaying) return;
   if (!state.lastTime) state.lastTime = timestamp;
   let dt = (timestamp - state.lastTime) / 1000;
   state.lastTime = timestamp;
   if (dt > 0.1) dt = 0.1;
-  updateSingle(dt);
-  renderSingle();
-  requestAnimationFrame(gameLoop);
+  updateSingle(dt); renderBoard(); requestAnimationFrame(gameLoop);
 }
 
 function updateSingle(dt) {
@@ -460,7 +462,6 @@ function updateSingle(dt) {
       state.spawnTimer = 4 + Math.random() * 2;
     }
   }
-  
   for (let i = state.zombies.length - 1; i >= 0; i--) {
     let z = state.zombies[i];
     if (z.stunTimer > 0) { z.stunTimer -= dt; continue; }
@@ -470,7 +471,6 @@ function updateSingle(dt) {
     
     let col = Math.floor(z.x);
     let plant = state.plants.find(p => p.row === z.row && p.col === col);
-    
     if (plant) {
       if (plant.type === 'potatomine') {
         if (Date.now() - plant.plantTime >= 7000) { 
@@ -501,19 +501,14 @@ function updateSingle(dt) {
       if (['peashooter', 'cornpult', 'snowpea', 'repeater', 'cannon', 'custom_plant'].includes(p.type)) {
         let targets = state.zombies.filter(z => z.row === p.row && z.x > p.col);
         if (targets.length > 0) {
-          targets.sort((a,b) => a.x - b.x);
-          let target = targets[0];
+          targets.sort((a,b) => a.x - b.x); let target = targets[0];
           if (p.type === 'cannon') {
             target.hp -= 100; p.cd = 10;
             let ex = document.createElement('div'); ex.className = 'explosion'; ex.textContent = '💥';
             ex.style.left = (target.x * (100/9)) + '%'; ex.style.top = (target.row * 20) + '%';
             lawn.appendChild(ex); setTimeout(() => ex.remove(), 300);
           } else {
-            state.bullets.push({
-              id: Date.now() + Math.random(), row: p.row, x: p.col + 0.5,
-              dmg: PLANT_TYPES[p.type].dmg, freeze: PLANT_TYPES[p.type].freeze || false,
-              emoji: p.type === 'cornpult' ? '🌽' : (p.type === 'snowpea' ? '❄️' : '🟢')
-            });
+            state.bullets.push({ id: Date.now() + Math.random(), row: p.row, x: p.col + 0.5, dmg: PLANT_TYPES[p.type].dmg, freeze: PLANT_TYPES[p.type].freeze || false, emoji: p.type === 'cornpult' ? '🌽' : (p.type === 'snowpea' ? '❄️' : '🟢') });
             p.cd = PLANT_TYPES[p.type].cooldown;
           }
           if (target.hp <= 0) { state.zombies = state.zombies.filter(z => z.id !== target.id); updateScore(10); }
@@ -533,7 +528,6 @@ function updateSingle(dt) {
     }
     if (hit || b.x > 9.5) state.bullets.splice(i, 1);
   }
-  
   if (state.spawnedZombies >= 20 && state.zombies.length === 0) gameOver(true);
 }
 
@@ -543,17 +537,8 @@ function spawnSingleZombie() {
   if (state.level === 1) { if (rand > 0.5) type = 'cone'; } 
   else { if (rand > 0.95) type = 'girl'; else if (rand > 0.75) type = 'football'; else if (rand > 0.45) type = 'bucket'; else if (rand > 0.15) type = 'cone'; }
   if (ZOMBIE_TYPES['custom_zombie'] && Math.random() < 0.2) type = 'custom_zombie';
-  
-  state.zombies.push({
-    id: Date.now() + Math.random(), row, x: 9.5,
-    hp: ZOMBIE_TYPES[type].hp, maxHp: ZOMBIE_TYPES[type].hp,
-    speed: ZOMBIE_TYPES[type].speed, emoji: ZOMBIE_TYPES[type].emoji, img: ZOMBIE_TYPES[type].img,
-    slowTimer: 0, attackTimer: 0, stunTimer: 0
-  });
+  state.zombies.push({ id: Date.now() + Math.random(), row, x: 9.5, hp: ZOMBIE_TYPES[type].hp, maxHp: ZOMBIE_TYPES[type].hp, speed: ZOMBIE_TYPES[type].speed, emoji: ZOMBIE_TYPES[type].emoji, img: ZOMBIE_TYPES[type].img, slowTimer: 0, attackTimer: 0, stunTimer: 0 });
 }
-
-/* ================= 6. 通用渲染与答题 (单机/联机共用) ================= */
-function renderSingle() { renderBoard(); }
 
 function renderBoard() {
   let plantsHtml = '', zombiesHtml = '', bulletsHtml = '';
@@ -564,22 +549,15 @@ function renderBoard() {
   });
   state.zombies.forEach(z => {
     const hpPct = Math.max(0, z.hp / z.maxHp * 100);
-    let classes = 'zombie';
-    if (z.slowTimer > 0) classes += ' slowed';
-    if (z.stunTimer > 0) classes += ' stunned';
+    let classes = 'zombie'; if (z.slowTimer > 0) classes += ' slowed'; if (z.stunTimer > 0) classes += ' stunned';
     let inner = z.img ? `<img src="${z.img}" class="custom-img">` : z.emoji;
-    zombiesHtml += `<div class="${classes}" style="left:${z.x * (100/9)}%; top:${z.row * 20}%">
-      <div class="hp-bar"><div class="hp-fill" style="width:${hpPct}%"></div></div><div>${inner}</div></div>`;
+    zombiesHtml += `<div class="${classes}" style="left:${z.x * (100/9)}%; top:${z.row * 20}%"><div class="hp-bar"><div class="hp-fill" style="width:${hpPct}%"></div></div><div>${inner}</div></div>`;
   });
   state.bullets.forEach(b => {
     bulletsHtml += `<div class="bullet" style="left:${b.x * (100/9)}%; top:${b.row * 20}%">${b.emoji}</div>`;
   });
-  
   let container = $('entityLayer');
-  if (!container) {
-    container = document.createElement('div'); container.id = 'entityLayer';
-    container.style.cssText = 'position:absolute; inset:0; pointer-events:none;'; lawn.appendChild(container);
-  }
+  if (!container) { container = document.createElement('div'); container.id = 'entityLayer'; container.style.cssText = 'position:absolute; inset:0; pointer-events:none;'; lawn.appendChild(container); }
   container.innerHTML = plantsHtml + zombiesHtml + bulletsHtml;
 }
 
@@ -589,12 +567,10 @@ function renderCards() {
   state.cards.forEach(c => {
     const isZombie = c.type.includes('zombie');
     const p = isZombie ? ZOMBIE_TYPES[c.type.replace('zombie_', '')] : PLANT_TYPES[c.type];
-    
     const div = document.createElement('div');
     div.className = 'card' + (state.selectedCardId === c.id ? ' selected' : '');
     if (p.img) div.innerHTML = `<img src="${p.img}"><div class="name">${p.name}</div>`;
     else div.innerHTML = `<div class="emoji">${p.emoji}</div><div class="name">${p.name}</div>`;
-    
     div.onclick = () => { state.selectedCardId = c.id; renderCards(); };
     area.appendChild(div);
   });
@@ -604,45 +580,34 @@ lawn.onclick = (e) => {
   if (!state.selectedCardId) return;
   const rect = lawn.getBoundingClientRect();
   const x = e.clientX - rect.left; const y = e.clientY - rect.top;
-  const col = Math.floor(x / (rect.width / COLS));
-  const row = Math.floor(y / (rect.height / ROWS));
-  
+  const col = Math.floor(x / (rect.width / COLS)); const row = Math.floor(y / (rect.height / ROWS));
   const cardIdx = state.cards.findIndex(c => c.id === state.selectedCardId);
   if (cardIdx === -1) return;
   const type = state.cards[cardIdx].type;
   
   if (state.mode === 'single') {
-    if (type.includes('zombie')) return alert('单机模式不能放僵尸！');
+    if (type.includes('zombie')) return showToast('单机模式不能放僵尸！');
     if (state.plants.find(p => p.row === row && p.col === col)) return;
     state.plants.push({ id: Date.now()+Math.random(), type, row, col, hp: PLANT_TYPES[type].hp, maxHp: PLANT_TYPES[type].hp, cd: 0, plantTime: Date.now() });
-    state.cards.splice(cardIdx, 1); state.selectedCardId = null; renderCards();
+    state.cards.splice(cardIdx, 1); state.selectedCardId = null; renderCards(); renderBoard();
   } else {
-    if (state.side === 'plant' && type.includes('zombie')) return alert('你是植物方，不能放僵尸！');
-    if (state.side === 'zombie' && !type.includes('zombie')) return alert('你是僵尸方，不能放植物！');
-    
-    if (state.mode === 'pk_host') { handlePKPlace(type, row, col, 'host'); }
-    else { state.channel.send({ type: 'broadcast', event: 'action_place', payload: { type, row, col } }); }
-    state.cards.splice(cardIdx, 1); state.selectedCardId = null; renderCards();
+    // PK 模式在第三部分处理
+    if (window.pkPlaceHandler) window.pkPlaceHandler(type, row, col, cardIdx);
   }
 };
 
-/* ================= 7. 答题系统 ================= */
 let currentQ = null, selectedOpts = new Set(), isAnswering = false, qPool = [];
 let quizStartTime = 0, quizModifyCount = 0;
 
 function openQuiz() {
-  if (state.mode === 'single' && state.zombies.length > 0) {
-    if (!confirm('游戏正在进行中，答题会暂停游戏。是否继续？')) return;
-  }
+  if (state.mode === 'single' && state.zombies.length > 0) { if (!confirm('答题会暂停游戏，是否继续？')) return; }
   if (state.mode === 'single') state.isPlaying = false; 
-  
   if (qPool.length === 0) {
     const qs = state.level === 1 ? QUESTIONS_L1 : QUESTIONS_L2;
     qPool = qs.map((_, i) => i).sort(() => Math.random() - 0.5);
   }
   currentQ = (state.level === 1 ? QUESTIONS_L1 : QUESTIONS_L2)[qPool.pop()];
-  selectedOpts.clear(); isAnswering = false;
-  quizStartTime = Date.now(); quizModifyCount = 0;
+  selectedOpts.clear(); isAnswering = false; quizStartTime = Date.now(); quizModifyCount = 0;
   
   $('quizQuestion').textContent = currentQ.q;
   const img = $('quizImage');
@@ -651,13 +616,10 @@ function openQuiz() {
   
   const box = $('quizOptions'); box.innerHTML = '';
   currentQ.options.forEach((opt, i) => {
-    const btn = document.createElement('button'); btn.className = 'option';
-    btn.textContent = String.fromCharCode(65 + i) + '. ' + opt;
+    const btn = document.createElement('button'); btn.className = 'option'; btn.textContent = String.fromCharCode(65 + i) + '. ' + opt;
     btn.onclick = () => onOptClick(i, btn); box.appendChild(btn);
   });
-  
-  $('quizSubmit').style.display = currentQ.multi ? 'block' : 'none';
-  $('quizSubmit').disabled = true;
+  $('quizSubmit').style.display = currentQ.multi ? 'block' : 'none'; $('quizSubmit').disabled = true;
   $('quizModal').classList.add('active');
 }
 
@@ -690,25 +652,20 @@ function submitAnswer() {
       if (state.mode === 'single') {
         updateScore(20); showBlindbox();
       } else {
-        state.channel.send({ type: 'broadcast', event: 'answer_correct', payload: {} });
-        handlePKAnswerCorrect('host'); 
-        if (state.mode === 'pk_host') pkNextQuestion();
+        if (window.pkAnswerHandler) window.pkAnswerHandler(true);
       }
     } else {
       if (state.mode === 'single') {
         state.totalWrong++; state.wrongQuestions.push({ ...currentQ, timeSpent, modifyCount: quizModifyCount });
         state.speedBonus += 0.1; $('uiSpeedBonus').textContent = '+' + state.speedBonus.toFixed(1);
-        alert(`答错了！没有获得植物。\n⚠️ 僵尸速度永久增加 0.1 格/秒！`);
-        resumeGame();
+        showToast('答错了！僵尸加速！'); resumeGame();
       } else {
-        alert('答错了！失去机会。');
-        if (state.mode === 'pk_host') pkNextQuestion();
+        if (window.pkAnswerHandler) window.pkAnswerHandler(false);
       }
     }
-  }, 1000);
+  }, 600);
 }
 
-/* ================= 8. 盲盒与结算 ================= */
 function showBlindbox() { $('blindboxDisplay').style.display = 'block'; $('blindboxDisplay').textContent = '🎁'; $('rewardPlant').style.display = 'none'; $('rewardText').style.display = 'none'; $('blindboxModal').classList.add('active'); }
 function openBlindbox() {
   const box = $('blindboxDisplay'); if (box.textContent === '💥') return; box.textContent = '💥';
@@ -737,7 +694,6 @@ function openBlindbox() {
     }, 2000);
   }, 800);
 }
-
 function closePlantInfo() { $('plantInfoModal').classList.remove('active'); resumeGame(); }
 function resumeGame() { if (state.mode === 'single' && !state.isPlaying) { state.isPlaying = true; state.lastTime = performance.now(); requestAnimationFrame(gameLoop); } }
 
@@ -784,7 +740,137 @@ async function gameOver(isWin) {
   }
 }
 
-/* ================= 9. PK 模式核心 ================= */
+function openFeedback() {
+  let chances = parseInt(localStorage.getItem('pvz_feedback_chances') || '0');
+  if (chances <= 0) return showToast('没有写纸条的次数了！'); 
+  $('feedbackContent').value = ''; $('feedbackModal').classList.add('active');
+}
+async function submitFeedback() {
+  const content = $('feedbackContent').value.trim(); if (!content) return showToast('请写点什么！');
+  let chances = parseInt(localStorage.getItem('pvz_feedback_chances') || '0'); if (chances <= 0) return showToast('次数不足！');
+  const btn = document.querySelector('#feedbackModal .quiz-submit'); btn.disabled = true; btn.textContent = '发送中...';
+  const { error } = await dbClient.from('feedbacks').insert({ student_name: state.name, student_class: state.class, content: content });
+  btn.disabled = false; btn.textContent = '发送给老师';
+  if (error) showToast('发送失败！'); else {
+    chances--; localStorage.setItem('pvz_feedback_chances', chances); $('feedbackChances').textContent = chances;
+    showToast('已成功发送！'); $('feedbackModal').classList.remove('active');
+  }
+}
+function processImage(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const img = new Image();
+      img.onload = function () {
+        const canvas = document.getElementById('qCanvas'), ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        document.getElementById('previewArea').style.display = 'block';
+      }; img.src = e.target.result;
+    }; reader.readAsDataURL(input.files[0]);
+  }
+}
+function saveCustomChar(type) {
+  const base64Img = document.getElementById('qCanvas').toDataURL('image/png');
+  if (type === 'plant') {
+    PLANT_TYPES['custom_plant'] = { name: '我(植物)', emoji: '🌱', img: base64Img, cooldown: 1.0, dmg: 10, hp: 1, desc: '专属定制植物！' };
+    localStorage.setItem('pvz_custom_plant', JSON.stringify(base64Img));
+  } else {
+    ZOMBIE_TYPES['custom_zombie'] = { name: '我(僵尸)', emoji: '🧟', img: base64Img, hp: 100, speed: 0.3 };
+    localStorage.setItem('pvz_custom_zombie', JSON.stringify(base64Img));
+  }
+  $('customBoxModal').classList.remove('active'); location.reload(); 
+}
+
+async function fetchLeaderboard() {
+  const { data, error } = await dbClient.rpc('get_top_scores', { p_limit: 20, p_offset: 0 });
+  if (error) return; const ul = $('leaderboard'); ul.innerHTML = '';
+  (data || []).forEach((player, index) => {
+    const li = document.createElement('li'); li.innerHTML = `<span>${index + 1}. ${player.name} (${player.class})</span> <span>${player.score}分</span>`; ul.appendChild(li);
+  });
+}
+async function updateScore(addScore) {
+  state.score += addScore; $('uiScore').textContent = state.score;
+  await dbClient.rpc('submit_score', { p_name: state.name, p_class: state.class, p_score: state.score });
+}
+
+// 教师端
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.teacher-table').forEach(t => t.classList.remove('active'));
+  if (tab === 'wrong') { document.querySelectorAll('.tab-btn')[0].classList.add('active'); $('table-wrong').classList.add('active'); } 
+  else if (tab === 'ppt') { document.querySelectorAll('.tab-btn')[1].classList.add('active'); $('table-ppt').classList.add('active'); renderPPTList(); } 
+  else { document.querySelectorAll('.tab-btn')[2].classList.add('active'); $('table-feedback').classList.add('active'); }
+}
+let allTeacherWrongData = [];
+async function loadTeacherData() {
+  const tbodyWrong = $('teacherWrongBody'); tbodyWrong.innerHTML = '<tr><td colspan="6" style="text-align:center;">加载中...</td></tr>';
+  const { data: dataWrong } = await dbClient.from('wrong_questions').select('*').order('created_at', { ascending: false }).limit(1000);
+  allTeacherWrongData = dataWrong || [];
+  if (allTeacherWrongData.length === 0) tbodyWrong.innerHTML = '<tr><td colspan="6" style="text-align:center;">暂无错题</td></tr>';
+  else {
+    tbodyWrong.innerHTML = '';
+    allTeacherWrongData.forEach(row => {
+      const date = new Date(row.created_at).toLocaleString();
+      let timeStr = row.time_spent !== null ? `${row.time_spent}秒` : '-', modStr = row.modify_count !== null ? `${row.modify_count}次` : '-';
+      tbodyWrong.innerHTML += `<tr><td>${date}</td><td>${row.student_class}</td><td>${row.student_name}</td><td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${row.question_text}">${row.question_text}</td><td style="color:${row.time_spent < 3 ? 'red' : (row.time_spent > 60 ? 'orange':'green')}">${timeStr}</td><td>${modStr}</td></tr>`;
+    });
+  }
+  const tbodyFeedback = $('teacherFeedbackBody'); tbodyFeedback.innerHTML = '<tr><td colspan="4" style="text-align:center;">加载中...</td></tr>';
+  const { data: dataFeedback } = await dbClient.from('feedbacks').select('*').order('created_at', { ascending: false }).limit(200);
+  if (!dataFeedback || dataFeedback.length === 0) tbodyFeedback.innerHTML = '<tr><td colspan="4" style="text-align:center;">暂无意见</td></tr>';
+  else {
+    tbodyFeedback.innerHTML = '';
+    dataFeedback.forEach(row => {
+      const date = new Date(row.created_at).toLocaleString();
+      tbodyFeedback.innerHTML += `<tr><td>${date}</td><td>${row.student_class}</td><td>${row.student_name}</td><td>${row.content}</td></tr>`;
+    });
+  }
+}
+let validPptQuestions = []; 
+function renderPPTList() {
+  const listEl = $('pptList'); listEl.innerHTML = '';
+  if (allTeacherWrongData.length === 0) { listEl.innerHTML = '<div style="text-align:center; padding:20px;">暂无数据</div>'; return; }
+  const validData = allTeacherWrongData.filter(r => r.time_spent >= 3);
+  const errorCounts = {};
+  validData.forEach(row => {
+    if (!errorCounts[row.question_text]) errorCounts[row.question_text] = { count: 0, options: row.options, correct: row.correct_answer };
+    errorCounts[row.question_text].count++;
+  });
+  const sortedQuestions = Object.keys(errorCounts).map(q => { return { question: q, ...errorCounts[q] }; }).sort((a, b) => b.count - a.count);
+  validPptQuestions = sortedQuestions.filter(q => q.count >= 2).slice(0, 15); 
+  if (validPptQuestions.length === 0) { listEl.innerHTML = '<div style="text-align:center; padding:20px;">目前没有错误率极高的题目(已过滤3秒内秒选)。</div>'; return; }
+  validPptQuestions.forEach((qData, idx) => {
+    const div = document.createElement('div'); div.className = 'ppt-item';
+    div.innerHTML = `<div class="ppt-item-info"><div class="ppt-item-title">${idx + 1}. ${qData.question}</div><div class="ppt-item-stats">累计错误次数：${qData.count} 次 | 正确答案：${qData.correct}</div></div><input type="checkbox" class="ppt-checkbox" value="${idx}" checked>`;
+    listEl.appendChild(div);
+  });
+}
+function exportToPPT() {
+  if (validPptQuestions.length === 0) return showToast('没有可导出的题目！');
+  const checkboxes = document.querySelectorAll('.ppt-checkbox:checked');
+  if (checkboxes.length === 0) return showToast('请至少勾选一道题目！');
+  const pptx = new PptxGenJS(); pptx.layout = 'LAYOUT_16x9';
+  checkboxes.forEach(cb => {
+    const qData = validPptQuestions[cb.value];
+    const slide = pptx.addSlide();
+    slide.addText("重点错题讲解", { x: 0.5, y: 0.2, w: 9, h: 0.5, fontSize: 24, bold: true, color: "e53935" });
+    slide.addText(`题目：${qData.question}`, { x: 0.5, y: 1.0, w: 9, h: 1.5, fontSize: 18, color: "333333", wrap: true });
+    const optsArr = qData.options.split(' | '); let optText = "";
+    optsArr.forEach((opt, i) => { optText += `${String.fromCharCode(65 + i)}. ${opt}\n`; });
+    slide.addText(optText, { x: 0.5, y: 2.8, w: 9, h: 2.0, fontSize: 16, color: "555555" });
+    slide.addText(`正确答案：${qData.correct}`, { x: 0.5, y: 5.0, w: 9, h: 0.5, fontSize: 20, bold: true, color: "4caf50" });
+    slide.addText(`⚠️ 该题全班累计做错 ${qData.count} 次，请重点分析！`, { x: 0.5, y: 5.5, w: 9, h: 0.5, fontSize: 16, color: "e53935" });
+    slide.addText("讲解思路：（老师在此补充）", { x: 0.5, y: 6.0, w: 9, h: 0.5, fontSize: 14, color: "999999", italic: true });
+  });
+  pptx.writeFile({ fileName: "物理错题讲解_自动生成.pptx" });
+}
+</script>
+
+<!-- ========================================================= -->
+<!-- 第三部分：PK 互动（双人对战） -->
+<!-- ========================================================= -->
+<script>
 function showPKMenu() { $('levelSelectScreen').style.display = 'none'; $('pkMenuScreen').style.display = 'flex'; }
 
 function createRoom() {
@@ -793,34 +879,47 @@ function createRoom() {
   $('pkMenuScreen').style.display = 'none'; $('gameScreen').classList.add('active');
   $('singleTopBar').style.display = 'none'; $('pkTopBar').style.display = 'flex'; $('sideBar').style.display = 'none';
   $('pkPlayer1Info').innerHTML = `${state.name} (植物)<br><span style="font-size:20px;">房号: ${roomId}</span>`;
+  $('pkPlayer2Info').innerHTML = `等待加入...`;
   
   state.channel = dbClient.channel('room_' + roomId);
   state.channel.on('broadcast', { event: 'join' }, payload => {
     $('pkPlayer2Info').innerHTML = `${payload.payload.name} (僵尸)`;
-    alert(`${payload.payload.name} 已加入！游戏开始！`);
-    startPKGame();
+    showToast(`${payload.payload.name} 已加入！游戏开始！`);
+    startPKGame(true);
   });
-  state.channel.on('broadcast', { event: 'action_place' }, payload => handlePKPlace(payload.payload.type, payload.payload.row, payload.payload.col, 'guest'));
-  state.channel.on('broadcast', { event: 'answer_correct' }, payload => handlePKAnswerCorrect('guest'));
+  state.channel.on('broadcast', { event: 'guest_place' }, payload => {
+    applyPKPlace(payload.payload.type, payload.payload.row, payload.payload.col);
+  });
+  state.channel.on('broadcast', { event: 'guest_win' }, payload => {
+    $('quizModal').classList.remove('active');
+    showToast('客机答对了，房主没抢到！');
+    setTimeout(() => pkNextQuestion(), 1000);
+  });
   state.channel.subscribe(); renderCards(); startMusic();
 }
 
 function joinRoom() {
   const roomId = $('roomIdInput').value.trim();
-  if (roomId.length !== 4) return alert('请输入4位房间号');
+  if (roomId.length !== 4) return showToast('请输入4位房间号');
   state.roomId = roomId; state.mode = 'pk_guest'; state.side = 'zombie';
   $('pkMenuScreen').style.display = 'none'; $('gameScreen').classList.add('active');
   $('singleTopBar').style.display = 'none'; $('pkTopBar').style.display = 'flex'; $('sideBar').style.display = 'none';
+  $('pkPlayer1Info').innerHTML = `房主 (植物)`;
   $('pkPlayer2Info').innerHTML = `${state.name} (僵尸)`;
   
   state.channel = dbClient.channel('room_' + roomId);
-  state.channel.on('broadcast', { event: 'start' }, () => startPKGame());
+  state.channel.on('broadcast', { event: 'start' }, () => startPKGame(false));
   state.channel.on('broadcast', { event: 'quiz' }, payload => showPKQuiz(payload.payload));
+  state.channel.on('broadcast', { event: 'host_win' }, payload => {
+    $('quizModal').classList.remove('active');
+    showToast('房主答对了，客机没抢到！');
+  });
   state.channel.on('broadcast', { event: 'sync' }, payload => {
-    const s = payload.payload; state.plants = s.plants; state.zombies = s.zombies; state.bullets = s.bullets;
+    const s = payload.payload; 
+    state.plants = s.plants; state.zombies = s.zombies; state.bullets = s.bullets;
     state.pkHp = s.hp; state.pkZombieCount = s.zombieCount;
-    $('pkPlayer1Info').innerHTML = `房主<br>HP: ${state.pkHp}`;
-    $('pkPlayer2Info').innerHTML = `${state.name} (僵尸)<br>剩余放置: ${30 - state.pkZombieCount}`;
+    $('pkPlayer1Info').innerHTML = `房主 (植物)<br>HP: ${state.pkHp}`;
+    $('pkPlayer2Info').innerHTML = `${state.name} (僵尸)<br>剩余: ${30 - state.pkZombieCount}`;
     renderBoard();
   });
   state.channel.subscribe(status => {
@@ -829,9 +928,12 @@ function joinRoom() {
   renderCards(); startMusic();
 }
 
-function startPKGame() {
-  if (state.mode === 'pk_host') { state.channel.send({ type: 'broadcast', event: 'start' }); setTimeout(pkNextQuestion, 1000); }
-  state.isPlaying = true; state.lastTime = performance.now(); requestAnimationFrame(pkLoop);
+function startPKGame(isHost) {
+  state.isPlaying = true; state.lastTime = performance.now();
+  if (isHost) {
+    state.channel.send({ type: 'broadcast', event: 'start' });
+    pkNextQuestion(); requestAnimationFrame(pkLoop);
+  }
 }
 
 let pkSyncTimer = 0;
@@ -841,8 +943,9 @@ function pkLoop(timestamp) {
   let dt = (timestamp - state.lastTime) / 1000; state.lastTime = timestamp;
   if (dt > 0.1) dt = 0.1;
   updatePK(dt);
+  
   pkSyncTimer += dt;
-  if (pkSyncTimer > 0.2) {
+  if (pkSyncTimer > 0.1) {
     pkSyncTimer = 0;
     state.channel.send({ type: 'broadcast', event: 'sync', payload: {
       plants: state.plants, zombies: state.zombies, bullets: state.bullets, hp: state.pkHp, zombieCount: state.pkZombieCount
@@ -866,7 +969,10 @@ function updatePK(dt) {
       z.x -= z.speed * dt;
       if (z.x <= 0.2) {
         state.pkHp -= 10; state.zombies = state.zombies.filter(zz => zz.id !== z.id);
-        if (state.pkHp <= 0) pkGameOver('僵尸胜利！', '植物被吃掉了脑子。');
+        if (state.pkHp <= 0) {
+          state.channel.send({ type: 'broadcast', event: 'gameover', payload: { win: 'zombie' } });
+          pkGameOver('僵尸胜利！', '植物被吃掉了脑子。'); return;
+        }
       }
     }
   }
@@ -921,151 +1027,48 @@ function showPKQuiz(q) {
   $('quizModal').classList.add('active');
 }
 
-function handlePKAnswerCorrect(who) {
-  if (state.side === 'plant') state.cards.push({ id: Date.now(), type: 'peashooter' });
-  else state.cards.push({ id: Date.now(), type: 'zombie_normal' }); 
-  renderCards(); alert('获得单位！');
-}
+window.pkAnswerHandler = function(isCorrect) {
+  if (isCorrect) {
+    if (state.side === 'plant') {
+      state.channel.send({ type: 'broadcast', event: 'host_win' });
+      state.cards.push({ id: Date.now(), type: 'peashooter' }); renderCards();
+      showToast('你抢到了！获得植物！');
+      setTimeout(() => pkNextQuestion(), 800);
+    } else {
+      state.channel.send({ type: 'broadcast', event: 'guest_win' });
+      state.cards.push({ id: Date.now(), type: 'zombie_normal' }); renderCards();
+      showToast('你抢到了！获得僵尸！');
+    }
+  } else {
+    showToast('答错了！机会留给对手。');
+  }
+};
 
-function handlePKPlace(type, row, col, from) {
+window.pkPlaceHandler = function(type, row, col, cardIdx) {
+  if (state.side === 'plant' && type.includes('zombie')) return showToast('你是植物方，不能放僵尸！');
+  if (state.side === 'zombie' && !type.includes('zombie')) return showToast('你是僵尸方，不能放植物！');
+  
+  if (state.mode === 'pk_host') { applyPKPlace(type, row, col); }
+  else {
+    applyPKPlace(type, row, col);
+    state.channel.send({ type: 'broadcast', event: 'guest_place', payload: { type, row, col } });
+  }
+  state.cards.splice(cardIdx, 1); state.selectedCardId = null; renderCards();
+};
+
+function applyPKPlace(type, row, col) {
   if (type.includes('zombie')) {
-    if (state.pkZombieCount >= 30) return;
+    if (state.pkZombieCount >= 30) return showToast('僵尸放置次数已满！');
     const zType = type.replace('zombie_', '');
-    state.zombies.push({ id: Date.now()+Math.random(), row, col, x: 8.5, type: zType, hp: ZOMBIE_TYPES[zType].hp, maxHp: ZOMBIE_TYPES[zType].hp, speed: ZOMBIE_TYPES[zType].speed, emoji: ZOMBIE_TYPES[zType].emoji, attackTimer: 0 });
+    state.zombies.push({ id: Date.now()+Math.random(), row, x: 8.5, hp: ZOMBIE_TYPES[zType].hp, maxHp: ZOMBIE_TYPES[zType].hp, speed: ZOMBIE_TYPES[zType].speed, emoji: ZOMBIE_TYPES[zType].emoji, attackTimer: 0 });
     state.pkZombieCount++;
   } else {
     if (state.plants.find(p => p.row === row && p.col === col)) return;
-    state.plants.push({ id: Date.now()+Math.random(), type, row, col, hp: PLANT_TYPES[type].hp, maxHp: PLANT_TYPES[type].hp, cd: 0 });
+    state.plants.push({ id: Date.now()+Math.random(), type, row, col, hp: PLANT_TYPES[type].hp, maxHp: PLANT_TYPES[type].hp, cd: 0, plantTime: Date.now() });
   }
+  renderBoard();
 }
 function pkGameOver(title, msg) { state.isPlaying = false; alert(`${title}\n${msg}`); location.reload(); }
-
-/* ================= 10. 附加功能与教师端 (代码未变，完整保留) ================= */
-async function fetchLeaderboard() {
-  const { data, error } = await dbClient.rpc('get_top_scores', { p_limit: 20, p_offset: 0 });
-  if (error) return; const ul = $('leaderboard'); ul.innerHTML = '';
-  (data || []).forEach((player, index) => {
-    const li = document.createElement('li'); li.innerHTML = `<span>${index + 1}. ${player.name} (${player.class})</span> <span>${player.score}分</span>`; ul.appendChild(li);
-  });
-}
-async function updateScore(addScore) {
-  state.score += addScore; $('uiScore').textContent = state.score;
-  await dbClient.rpc('submit_score', { p_name: state.name, p_class: state.class, p_score: state.score });
-}
-function openFeedback() {
-  let chances = parseInt(localStorage.getItem('pvz_feedback_chances') || '0');
-  if (chances <= 0) return alert('没有写纸条的次数了！'); $('feedbackContent').value = ''; $('feedbackModal').classList.add('active');
-}
-async function submitFeedback() {
-  const content = $('feedbackContent').value.trim(); if (!content) return alert('请写点什么！');
-  let chances = parseInt(localStorage.getItem('pvz_feedback_chances') || '0'); if (chances <= 0) return alert('次数不足！');
-  const btn = document.querySelector('#feedbackModal .quiz-submit'); btn.disabled = true; btn.textContent = '发送中...';
-  const { error } = await dbClient.from('feedbacks').insert({ student_name: state.name, student_class: state.class, content: content });
-  btn.disabled = false; btn.textContent = '发送给老师';
-  if (error) alert('发送失败！'); else {
-    chances--; localStorage.setItem('pvz_feedback_chances', chances); $('feedbackChances').textContent = chances;
-    alert('已成功发送！'); $('feedbackModal').classList.remove('active');
-  }
-}
-function processImage(input) {
-  if (input.files && input.files[0]) {
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      const img = new Image();
-      img.onload = function () {
-        const canvas = document.getElementById('qCanvas'), ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        document.getElementById('previewArea').style.display = 'block';
-      }; img.src = e.target.result;
-    }; reader.readAsDataURL(input.files[0]);
-  }
-}
-function saveCustomChar(type) {
-  const base64Img = document.getElementById('qCanvas').toDataURL('image/png');
-  if (type === 'plant') {
-    PLANT_TYPES['custom_plant'] = { name: '我(植物)', emoji: '🌱', img: base64Img, cooldown: 1.0, dmg: 10, hp: 1, desc: '专属定制植物！' };
-    localStorage.setItem('pvz_custom_plant', JSON.stringify(base64Img));
-  } else {
-    ZOMBIE_TYPES['custom_zombie'] = { name: '我(僵尸)', emoji: '🧟', img: base64Img, hp: 100, speed: 0.3 };
-    localStorage.setItem('pvz_custom_zombie', JSON.stringify(base64Img));
-  }
-  $('customBoxModal').classList.remove('active'); location.reload(); 
-}
-
-function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.teacher-table').forEach(t => t.classList.remove('active'));
-  if (tab === 'wrong') { document.querySelectorAll('.tab-btn')[0].classList.add('active'); $('table-wrong').classList.add('active'); } 
-  else if (tab === 'ppt') { document.querySelectorAll('.tab-btn')[1].classList.add('active'); $('table-ppt').classList.add('active'); renderPPTList(); } 
-  else { document.querySelectorAll('.tab-btn')[2].classList.add('active'); $('table-feedback').classList.add('active'); }
-}
-
-let allTeacherWrongData = [];
-async function loadTeacherData() {
-  const tbodyWrong = $('teacherWrongBody'); tbodyWrong.innerHTML = '<tr><td colspan="6" style="text-align:center;">加载中...</td></tr>';
-  const { data: dataWrong } = await dbClient.from('wrong_questions').select('*').order('created_at', { ascending: false }).limit(1000);
-  allTeacherWrongData = dataWrong || [];
-  if (allTeacherWrongData.length === 0) tbodyWrong.innerHTML = '<tr><td colspan="6" style="text-align:center;">暂无错题</td></tr>';
-  else {
-    tbodyWrong.innerHTML = '';
-    allTeacherWrongData.forEach(row => {
-      const date = new Date(row.created_at).toLocaleString();
-      let timeStr = row.time_spent !== null ? `${row.time_spent}秒` : '-', modStr = row.modify_count !== null ? `${row.modify_count}次` : '-';
-      tbodyWrong.innerHTML += `<tr><td>${date}</td><td>${row.student_class}</td><td>${row.student_name}</td><td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${row.question_text}">${row.question_text}</td><td style="color:${row.time_spent < 3 ? 'red' : (row.time_spent > 60 ? 'orange':'green')}">${timeStr}</td><td>${modStr}</td></tr>`;
-    });
-  }
-  const tbodyFeedback = $('teacherFeedbackBody'); tbodyFeedback.innerHTML = '<tr><td colspan="4" style="text-align:center;">加载中...</td></tr>';
-  const { data: dataFeedback } = await dbClient.from('feedbacks').select('*').order('created_at', { ascending: false }).limit(200);
-  if (!dataFeedback || dataFeedback.length === 0) tbodyFeedback.innerHTML = '<tr><td colspan="4" style="text-align:center;">暂无意见</td></tr>';
-  else {
-    tbodyFeedback.innerHTML = '';
-    dataFeedback.forEach(row => {
-      const date = new Date(row.created_at).toLocaleString();
-      tbodyFeedback.innerHTML += `<tr><td>${date}</td><td>${row.student_class}</td><td>${row.student_name}</td><td>${row.content}</td></tr>`;
-    });
-  }
-}
-
-let validPptQuestions = []; 
-function renderPPTList() {
-  const listEl = $('pptList'); listEl.innerHTML = '';
-  if (allTeacherWrongData.length === 0) { listEl.innerHTML = '<div style="text-align:center; padding:20px;">暂无数据</div>'; return; }
-  const validData = allTeacherWrongData.filter(r => r.time_spent >= 3);
-  const errorCounts = {};
-  validData.forEach(row => {
-    if (!errorCounts[row.question_text]) errorCounts[row.question_text] = { count: 0, options: row.options, correct: row.correct_answer };
-    errorCounts[row.question_text].count++;
-  });
-  const sortedQuestions = Object.keys(errorCounts).map(q => { return { question: q, ...errorCounts[q] }; }).sort((a, b) => b.count - a.count);
-  validPptQuestions = sortedQuestions.filter(q => q.count >= 2).slice(0, 15); 
-  if (validPptQuestions.length === 0) { listEl.innerHTML = '<div style="text-align:center; padding:20px;">目前没有错误率极高的题目(已过滤3秒内秒选)。</div>'; return; }
-  validPptQuestions.forEach((qData, idx) => {
-    const div = document.createElement('div'); div.className = 'ppt-item';
-    div.innerHTML = `<div class="ppt-item-info"><div class="ppt-item-title">${idx + 1}. ${qData.question}</div><div class="ppt-item-stats">累计错误次数：${qData.count} 次 | 正确答案：${qData.correct}</div></div><input type="checkbox" class="ppt-checkbox" value="${idx}" checked>`;
-    listEl.appendChild(div);
-  });
-}
-
-function exportToPPT() {
-  if (validPptQuestions.length === 0) return alert('没有可导出的题目！');
-  const checkboxes = document.querySelectorAll('.ppt-checkbox:checked');
-  if (checkboxes.length === 0) return alert('请至少勾选一道题目！');
-  const pptx = new PptxGenJS(); pptx.layout = 'LAYOUT_16x9';
-  checkboxes.forEach(cb => {
-    const qData = validPptQuestions[cb.value];
-    const slide = pptx.addSlide();
-    slide.addText("重点错题讲解", { x: 0.5, y: 0.2, w: 9, h: 0.5, fontSize: 24, bold: true, color: "e53935" });
-    slide.addText(`题目：${qData.question}`, { x: 0.5, y: 1.0, w: 9, h: 1.5, fontSize: 18, color: "333333", wrap: true });
-    const optsArr = qData.options.split(' | '); let optText = "";
-    optsArr.forEach((opt, i) => { optText += `${String.fromCharCode(65 + i)}. ${opt}\n`; });
-    slide.addText(optText, { x: 0.5, y: 2.8, w: 9, h: 2.0, fontSize: 16, color: "555555" });
-    slide.addText(`正确答案：${qData.correct}`, { x: 0.5, y: 5.0, w: 9, h: 0.5, fontSize: 20, bold: true, color: "4caf50" });
-    slide.addText(`⚠️ 该题全班累计做错 ${qData.count} 次，请重点分析！`, { x: 0.5, y: 5.5, w: 9, h: 0.5, fontSize: 16, color: "e53935" });
-    slide.addText("讲解思路：（老师在此补充）", { x: 0.5, y: 6.0, w: 9, h: 0.5, fontSize: 14, color: "999999", italic: true });
-  });
-  pptx.writeFile({ fileName: "物理错题讲解_自动生成.pptx" });
-}
 </script>
 </body>
 </html>
