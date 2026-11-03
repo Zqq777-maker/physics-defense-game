@@ -1,28 +1,37 @@
 function showPKMenu() { document.getElementById('levelSelectScreen').style.display = 'none'; document.getElementById('pkMenuScreen').style.display = 'flex'; }
 
+// 统一的顶部UI刷新函数
+function updatePKUI() {
+  const p1Name = state.mode === 'pk_host' ? state.name : (state.opponentName || '房主');
+  const p2Name = state.mode === 'pk_guest' ? state.name : (state.opponentName || '客机');
+  document.getElementById('pkPlayer1Info').innerHTML = `${p1Name} (植物)<br>HP: ${state.pkHp}`;
+  document.getElementById('pkPlayer2Info').innerHTML = `${p2Name} (僵尸)<br>剩余: ${30 - state.pkZombieCount}`;
+}
+
 function createRoom() {
   const roomId = Math.floor(1000 + Math.random() * 9000).toString();
   state.roomId = roomId; state.mode = 'pk_host'; state.side = 'plant';
   
   document.getElementById('pkMenuScreen').style.display = 'none'; document.getElementById('gameScreen').classList.add('active');
   document.getElementById('singleTopBar').style.display = 'none'; document.getElementById('pkTopBar').style.display = 'flex'; document.getElementById('sideBar').style.display = 'none';
-  document.getElementById('pkPlayer1Info').innerHTML = `${state.name} (植物)<br><span style="font-size:20px;">房号: ${roomId}</span>`;
-  document.getElementById('pkPlayer2Info').innerHTML = `等待加入...`;
   
-  // 初始化频道
+  // 初始化状态
+  state.pkHp = 100; 
+  state.pkZombieCount = 0;
+  updatePKUI(); // 刷新UI
+  
   state.channel = dbClient.channel('room_' + roomId);
   
   state.channel.on('broadcast', { event: 'join' }, payload => {
-    document.getElementById('pkPlayer2Info').innerHTML = `${payload.payload.name} (僵尸)`;
-    showToast(`${payload.payload.name} 已加入！`);
+    state.opponentName = payload.payload.name;
+    updatePKUI(); // 刷新UI
+    showToast(`${state.opponentName} 已加入！`);
   });
   
-  // 接收到客机放置僵尸的广播
   state.channel.on('broadcast', { event: 'guest_place' }, payload => {
     applyPKPlace(payload.payload.type, payload.payload.row, payload.payload.col);
   });
 
-  // 接收到客机扣血/胜利的广播 (可选)
   state.channel.on('broadcast', { event: 'gameover' }, payload => {
     if (payload.payload.win === 'zombie') {
       state.isPlaying = false;
@@ -35,7 +44,6 @@ function createRoom() {
   renderCards(); 
   startMusic();
   
-  // 房主直接开启游戏和物理循环
   state.isPlaying = true;
   state.lastTime = performance.now();
   requestAnimationFrame(pkLoop);
@@ -48,22 +56,22 @@ function joinRoom() {
   
   document.getElementById('pkMenuScreen').style.display = 'none'; document.getElementById('gameScreen').classList.add('active');
   document.getElementById('singleTopBar').style.display = 'none'; document.getElementById('pkTopBar').style.display = 'flex'; document.getElementById('sideBar').style.display = 'none';
-  document.getElementById('pkPlayer1Info').innerHTML = `房主 (植物)`;
-  document.getElementById('pkPlayer2Info').innerHTML = `${state.name} (僵尸)`;
+  
+  state.pkHp = 100;
+  state.pkZombieCount = 0;
+  updatePKUI();
   
   state.channel = dbClient.channel('room_' + roomId);
   
-  // 接收房主同步的物理画面
   state.channel.on('broadcast', { event: 'sync' }, payload => {
     const s = payload.payload; 
     state.plants = s.plants; state.zombies = s.zombies; state.bullets = s.bullets;
     state.pkHp = s.hp; state.pkZombieCount = s.zombieCount;
-    document.getElementById('pkPlayer1Info').innerHTML = `房主 (植物)<br>HP: ${state.pkHp}`;
-    document.getElementById('pkPlayer2Info').innerHTML = `${state.name} (僵尸)<br>剩余僵尸: ${30 - state.pkZombieCount}`;
+    state.opponentName = s.hostName; // 获取房主名字
+    updatePKUI(); // 客机收到同步数据后，刷新UI
     renderBoard();
   });
   
-  // 接收房主广播的游戏结束
   state.channel.on('broadcast', { event: 'gameover' }, payload => {
     state.isPlaying = false;
     alert(payload.payload.win === 'zombie' ? '僵尸胜利！' : '植物胜利！');
@@ -78,8 +86,6 @@ function joinRoom() {
   
   renderCards(); 
   startMusic();
-  
-  // 客机加入后直接开启游戏，随时可答题放僵尸
   state.isPlaying = true;
 }
 
@@ -90,21 +96,24 @@ function pkLoop(timestamp) {
   if (!state.lastTime) state.lastTime = timestamp;
   let dt = (timestamp - state.lastTime) / 1000; state.lastTime = timestamp;
   if (dt > 0.1) dt = 0.1;
+  
   updatePK(dt);
   
   pkSyncTimer += dt;
-  if (pkSyncTimer > 0.1) {
+  if (pkSyncTimer > 0.1) { // 每 0.1 秒同步一次画面和血量给客机
     pkSyncTimer = 0;
     state.channel.send({ type: 'broadcast', event: 'sync', payload: {
-      plants: state.plants, zombies: state.zombies, bullets: state.bullets, hp: state.pkHp, zombieCount: state.pkZombieCount
+      plants: state.plants, zombies: state.zombies, bullets: state.bullets, 
+      hp: state.pkHp, zombieCount: state.pkZombieCount, hostName: state.name
     }});
   }
   renderBoard(); 
   requestAnimationFrame(pkLoop);
 }
 
-// 房主的物理引擎（计算植物攻击、僵尸移动和啃咬）
+// 房主的物理引擎
 function updatePK(dt) {
+  let hpChanged = false;
   for (let i = state.zombies.length - 1; i >= 0; i--) {
     let z = state.zombies[i];
     let col = Math.floor(z.x);
@@ -119,7 +128,9 @@ function updatePK(dt) {
     } else {
       z.x -= z.speed * dt;
       if (z.x <= 0.2) {
-        state.pkHp -= 10; state.zombies = state.zombies.filter(zz => zz.id !== z.id);
+        state.pkHp -= 10; 
+        hpChanged = true;
+        state.zombies = state.zombies.filter(zz => zz.id !== z.id);
         if (state.pkHp <= 0) {
           state.channel.send({ type: 'broadcast', event: 'gameover', payload: { win: 'zombie' } });
           state.isPlaying = false; alert('僵尸胜利！'); location.reload(); return;
@@ -127,6 +138,7 @@ function updatePK(dt) {
       }
     }
   }
+  if (hpChanged) updatePKUI(); // 如果有僵尸吃植物扣血，刷新房主UI
   
   state.plants.forEach(p => {
     p.cd -= dt;
@@ -155,7 +167,7 @@ function updatePK(dt) {
   }
 }
 
-// 双方独立的答题按钮逻辑
+// 答题按钮逻辑
 let pkQPool = [];
 function openPKQuiz() {
   if (!state.isPlaying) return showToast('游戏未开始');
@@ -178,7 +190,7 @@ function openPKQuiz() {
   document.getElementById('quizModal').classList.add('active');
 }
 
-// 答对后独立发牌，不干扰对方
+// 双方独立答题，答对发牌
 window.pkAnswerHandler = function(isCorrect) {
   if (isCorrect) {
     if (state.side === 'plant') {
@@ -197,22 +209,21 @@ window.pkAnswerHandler = function(isCorrect) {
   }
 };
 
-// 放置逻辑：房主放植物，客机放僵尸
+// 放置逻辑
 window.pkPlaceHandler = function(type, row, col, cardIdx) {
   if (state.side === 'plant' && type.includes('zombie')) return showToast('你是植物方，不能放僵尸！');
   if (state.side === 'zombie' && !type.includes('zombie')) return showToast('你是僵尸方，不能放植物！');
   
   if (state.mode === 'pk_host') { 
-    // 房主放植物
     applyPKPlace(type, row, col); 
   } else {
-    // 客机放僵尸：先在本地渲染，然后告诉房主
     applyPKPlace(type, row, col);
     state.channel.send({ type: 'broadcast', event: 'guest_place', payload: { type, row, col } });
   }
   state.cards.splice(cardIdx, 1); state.selectedCardId = null; renderCards();
 };
 
+// 应用放置并刷新UI
 function applyPKPlace(type, row, col) {
   if (type.includes('zombie')) {
     if (state.pkZombieCount >= 30) return showToast('僵尸放置次数已满！');
@@ -223,5 +234,6 @@ function applyPKPlace(type, row, col) {
     if (state.plants.find(p => p.row === row && p.col === col)) return;
     state.plants.push({ id: Date.now()+Math.random(), type, row, col, hp: PLANT_TYPES[type].hp, maxHp: PLANT_TYPES[type].hp, cd: 0, plantTime: Date.now() });
   }
+  updatePKUI(); // 每次放置单位后刷新UI
   renderBoard();
 }
