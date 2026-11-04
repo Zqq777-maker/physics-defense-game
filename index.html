@@ -308,7 +308,59 @@ function showToast(msg) {
   clearTimeout(toastTimeout);
   toastTimeout = setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.style.display = 'none', 300); }, 2000);
 }
+let currentBoxType = ''; 
+let tempMusicBase64 = '';
 
+// 统一下发宝箱弹窗
+function openBox(type) {
+  currentBoxType = type;
+  const modal = document.getElementById('customBoxModal');
+  modal.classList.add('active');
+  
+  document.getElementById('photoBtnArea').style.display = 'none';
+  document.getElementById('musicBtnArea').style.display = 'none';
+  document.getElementById('previewArea').style.display = 'none';
+  document.getElementById('musicPreviewArea').style.display = 'none';
+  document.getElementById('photoUpload').value = '';
+  document.getElementById('musicUpload').value = '';
+  
+  if (type === 'music') {
+    document.getElementById('boxTitle').textContent = '🎵 音乐宝箱';
+    document.getElementById('boxDesc').textContent = '上传一段 MP4 音频替换当前背景音乐！';
+    document.getElementById('musicBtnArea').style.display = 'block';
+  } else {
+    document.getElementById('boxTitle').textContent = '✨ 角色宝箱';
+    document.getElementById('photoBtnArea').style.display = 'block';
+    document.getElementById('plantForm').style.display = type.includes('plant') ? 'block' : 'none';
+    document.getElementById('zombieForm').style.display = type.includes('zombie') ? 'block' : 'none';
+    document.getElementById('boxDesc').textContent = type.includes('shared') ? '上传后可经老师审核全班共享' : '仅限当前设备使用的专属角色';
+  }
+}
+
+// 处理音乐文件读取
+function processMusic(input) {
+  if (input.files && input.files[0]) {
+    const file = input.files[0];
+    if (file.size > 5 * 1024 * 1024) return showToast('文件太大，请上传小于 5MB 的音频');
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      tempMusicBase64 = e.target.result;
+      document.getElementById('musicPreviewArea').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+// 保存音乐
+function saveMusic() {
+  if (!tempMusicBase64) return showToast('请先上传音乐');
+  localStorage.setItem('pvz_custom_bgm', tempMusicBase64);
+  showToast('音乐保存成功！刷新后生效');
+  document.getElementById('customBoxModal').classList.remove('active');
+}
+
+// 修改原来的 toggleCharForm 函数（如果不用了可以直接删除）
 // 音乐引擎
 let audioCtx = null, musicInterval = null, isMusicMuted = false;
 const notes = [523.25, 523.25, 659.25, 783.99, 523.25, 523.25, 659.25, 783.99, 440.00, 440.00, 554.37, 659.25, 440.00, 440.00, 554.37, 659.25, 493.88, 493.88, 587.33, 739.99, 493.88, 493.88, 587.33, 739.99, 523.25, 523.25, 659.25, 783.99, 523.25, 659.25, 783.99, 1046.50];
@@ -324,9 +376,36 @@ function playNextNote() {
   osc.start(now); osc.stop(now + 0.15);
   currentNoteIndex = (currentNoteIndex + 1) % notes.length;
 }
-function startMusic() { if (musicInterval) clearInterval(musicInterval); initMusic(); if (audioCtx.state === 'suspended') audioCtx.resume(); musicInterval = setInterval(playNextNote, 200); }
-function toggleMusic() { isMusicMuted = !isMusicMuted; const btn = document.getElementById('musicBtn'); if (isMusicMuted) { btn.textContent = '🔇 音乐关'; btn.style.background = '#777'; btn.style.boxShadow = '0 3px 0 #444'; } else { btn.textContent = '🎵 音乐开'; btn.style.background = '#2196f3'; btn.style.boxShadow = '0 3px 0 #1565c0'; if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); } }
+function startMusic()  {
+  // 1. 检查是否有自定义音乐
+  const customBgm = localStorage.getItem('pvz_custom_bgm');
+  if (customBgm) {
+    if (customAudioPlayer) customAudioPlayer.pause();
+    customAudioPlayer = new Audio(customBgm);
+    customAudioPlayer.loop = true;
+    customAudioPlayer.volume = 0.5;
+    customAudioPlayer.play().catch(e => console.log('等待用户交互播放'));
+    return; // 有自定义音乐就不播 8-bit 了
+  }
 
+  // 2. 原本的 8-bit 合成器逻辑
+  if (musicInterval) clearInterval(musicInterval); 
+  initMusic(); 
+  if (audioCtx.state === 'suspended') audioCtx.resume(); 
+  musicInterval = setInterval(playNextNote, 200); 
+}
+function toggleMusic() { 
+  isMusicMuted = !isMusicMuted; 
+  const btn = document.getElementById('musicBtn'); 
+  if (isMusicMuted) { 
+    btn.textContent = '🔇 音乐关'; btn.style.background = '#777'; btn.style.boxShadow = '0 3px 0 #444';
+    if (customAudioPlayer) customAudioPlayer.pause();
+  } else { 
+    btn.textContent = '🎵 音乐开'; btn.style.background = '#2196f3'; btn.style.boxShadow = '0 3px 0 #1565c0'; 
+    if (customAudioPlayer) customAudioPlayer.play();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); 
+  } 
+}
 // 基础配置
 const ROWS = 5, COLS = 9;
 const PLANT_TYPES = {
@@ -662,6 +741,13 @@ function submitAnswer() {
     if (isCorrect) {
       if (state.mode === 'single') {
         updateScore(20); showBlindbox();
+         if (Math.random() < 0.01) {
+           setTimeout(() => { openBox('music'); }, 500);
+        }
+      } else {
+        if (window.pkAnswerHandler) window.pkAnswerHandler(true);
+      }
+    }
       } else {
         if (window.pkAnswerHandler) window.pkAnswerHandler(true);
       }
@@ -719,6 +805,13 @@ async function gameOver(isWin) {
   $('resultScore').textContent = `最终得分：${state.score}`;
   const notice = $('rewardNotice'); notice.innerHTML = '';
   
+ async function gameOver(isWin) {
+  state.isPlaying = false;
+  $('resultTitle').textContent = isWin ? '🎉 挑战成功！' : '💀 僵尸吃掉了你的脑子！';
+  $('resultTitle').style.color = isWin ? '#4caf50' : '#e53935';
+  $('resultScore').textContent = `最终得分：${state.score}`;
+  const notice = $('rewardNotice'); notice.innerHTML = '';
+  
   if (isWin) {
     if (state.level === 1) {
       notice.innerHTML += `恭喜获得新植物：🥔 土豆地雷！<br>`; state.cards.push({ id: Date.now(), type: 'potatomine' });
@@ -728,6 +821,40 @@ async function gameOver(isWin) {
       chances++; localStorage.setItem('pvz_feedback_chances', chances); $('feedbackChances').textContent = chances;
       notice.innerHTML += `🎁 通关第二关！获得 1 次【📝 写小纸条】机会！<br>`;
     }
+  }
+  
+  if (state.totalWrong >= 0) {
+    setTimeout(() => { 
+      $('customBoxModal').classList.add('active'); 
+      $('previewArea').style.display = 'none'; 
+      $('charName').value = '';
+      $('charType').value = 'plant';
+      toggleCharForm();
+    }, 1000);
+  } else if (isWin && state.totalWrong === 0) {
+    notice.innerHTML += `✨ 达成全对！可惜这次宝箱没爆出。<br>`;
+  }
+
+  const wrongArea = $('wrongQuestionsArea');
+  // ... 后面的错题显示逻辑保持不动 ...
+    if (state.totalWrong === 0) {
+      // 全对通关：5% 概率出共享宝箱
+      if (Math.random() < 0.05) {
+        setTimeout(() => { 
+          openBox(Math.random() > 0.5 ? 'shared_plant' : 'shared_zombie'); 
+        }, 1000);
+      }
+    } else {
+      // 有错题但通关：5% 概率出本地宝箱
+      if (Math.random() < 0.05) {
+        setTimeout(() => { 
+          openBox(Math.random() > 0.5 ? 'local_plant' : 'local_zombie'); 
+        }, 1000);
+      }
+    }
+  }
+  
+  const wrongArea = $('wrongQuestionsArea');
     
     // 5% 概率开宝箱（全对）
     if (state.totalWrong >= 0) {
@@ -791,35 +918,31 @@ function processImage(input) {
   }
 }
 
-async function saveCustomChar() {
-  const name = $('charName').value.trim();
+async function saveCustomChar() async function saveCustomChar() {
+  const name = document.getElementById('charName').value.trim();
   if (!name) return showToast('请给角色起个名字！');
   
-  const typeVal = $('charType').value; // 'plant', 'zombie', 'rare'
   const imgBase64 = document.getElementById('qCanvas').toDataURL('image/png');
+  const isPlant = currentBoxType.includes('plant');
+  const isShared = currentBoxType.includes('shared');
   
-  let isPlant = typeVal.includes('plant');
-  let isZombie = typeVal.includes('zombie');
-  let isRare = typeVal === 'rare';
+  let speed = isPlant ? parseFloat(document.getElementById('plantSpeed').value) : parseFloat(document.getElementById('zombieSpeed').value);
+  let hp = isPlant ? 1 : parseInt(document.getElementById('zombieHp').value);
   
-  let speed = isPlant ? parseFloat($('plantSpeed').value) : parseFloat($('zombieSpeed').value);
-  let hp = isZombie ? parseInt($('zombieHp').value) : 1;
-  
-  if (isRare) {
-    // 上传到云端等待审核
+  if (isShared) {
+    // 共享宝箱：上传云端
     const { error } = await dbClient.from('shared_chars').insert({
       creator_name: state.name,
-      char_type: isPlant ? 'rare_plant' : 'rare_zombie',
+      char_type: isPlant ? 'shared_plant' : 'shared_zombie',
       name: name,
       img_base64: imgBase64,
       attr_speed: speed,
       attr_hp: hp,
       status: 'pending'
     });
-    if (error) showToast('上传失败，请检查网络'); 
-    else showToast('上传成功！请等待老师审核，通过后全班可见！');
+    if (error) showToast('上传失败'); else showToast('已提交审核！');
   } else {
-    // 存入本地
+    // 本地宝箱：存本地
     if (isPlant) {
       localCustomPlants.push({ name, img: imgBase64, speed });
       localStorage.setItem('pvz_custom_plants', JSON.stringify(localCustomPlants));
@@ -827,14 +950,12 @@ async function saveCustomChar() {
       localCustomZombies.push({ name, img: imgBase64, speed, hp });
       localStorage.setItem('pvz_custom_zombies', JSON.stringify(localCustomZombies));
     }
-    showToast('保存成功！下次游戏生效。');
-    registerCustomCharacters();
+    showToast('保存成功！下次答题/刷怪生效');
   }
   
-  $('customBoxModal').classList.remove('active');
-  location.reload(); // 刷新页面以应用新配置
+  document.getElementById('customBoxModal').classList.remove('active');
+  location.reload();
 }
-
 // 小纸条、排行榜、教师端等原有逻辑保留
 function openFeedback() { let chances = parseInt(localStorage.getItem('pvz_feedback_chances') || '0'); if (chances <= 0) return showToast('没有写纸条的次数了！'); $('feedbackContent').value = ''; $('feedbackModal').classList.add('active'); }
 async function submitFeedback() {
