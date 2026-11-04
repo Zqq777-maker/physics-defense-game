@@ -230,6 +230,13 @@ window.pkAnswerHandler = function(isCorrect) {
       state.cards.push({ id: Date.now(), type: 'zombie_' + randType }); renderCards();
       showToast(`答对啦！获得僵尸：${ZOMBIE_TYPES[randType].name}！`);
     }
+    
+    // 👇👇👇 新增：1% 概率出音乐宝箱 👇👇👇
+    if (Math.random() < 0.01) {
+      setTimeout(() => { openBox('music'); }, 800);
+    }
+    // 👆👆👆 新增结束 👆👆👆
+    
   } else {
     showToast('答错了！再试一次吧。');
   }
