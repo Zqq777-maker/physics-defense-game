@@ -1,19 +1,17 @@
 function showPKMenu() { document.getElementById('levelSelectScreen').style.display = 'none'; document.getElementById('pkMenuScreen').style.display = 'flex'; }
 
-// 统一的顶部UI刷新函数（同时显示HP、剩余僵尸、房号）
+// 统一的顶部UI刷新函数
 function updatePKUI() {
   const p1Name = state.mode === 'pk_host' ? state.name : (state.opponentName || '房主');
   const p2Name = state.mode === 'pk_guest' ? state.name : (state.opponentName || '客机');
   const hpColor = state.pkHp > 30 ? '#4caf50' : '#e53935';
   
-  // 植物方信息（包含房号）
   document.getElementById('pkPlayer1Info').innerHTML = `
     <div style="font-size:13px; opacity:0.8;">🌱 ${p1Name} (植物)</div>
     <div style="font-size:18px; color:${hpColor};">HP: ${state.pkHp}</div>
     <div style="font-size:12px; color:#ffd166;">房号: ${state.roomId}</div>
   `;
   
-  // 僵尸方信息（包含剩余数量）
   document.getElementById('pkPlayer2Info').innerHTML = `
     <div style="font-size:13px; opacity:0.8;">🧟 ${p2Name} (僵尸)</div>
     <div style="font-size:18px; color:#ff9800;">剩余: ${30 - state.pkZombieCount}</div>
@@ -27,28 +25,25 @@ function createRoom() {
   document.getElementById('pkMenuScreen').style.display = 'none'; document.getElementById('gameScreen').classList.add('active');
   document.getElementById('singleTopBar').style.display = 'none'; document.getElementById('pkTopBar').style.display = 'flex'; document.getElementById('sideBar').style.display = 'none';
   
-  // 初始化状态
-  state.pkHp = 100; 
-  state.pkZombieCount = 0;
-  updatePKUI(); // 渲染UI
+  state.pkHp = 100; state.pkZombieCount = 0;
+  updatePKUI();
   
   state.channel = dbClient.channel('room_' + roomId);
   
   state.channel.on('broadcast', { event: 'join' }, payload => {
     state.opponentName = payload.payload.name;
-    updatePKUI(); // 对手加入，刷新UI名字
+    updatePKUI();
     showToast(`${state.opponentName} 已加入！`);
   });
   
+  // 房主接收客机的放置指令（带上客机生成的唯一 ID）
   state.channel.on('broadcast', { event: 'guest_place' }, payload => {
-    applyPKPlace(payload.payload.type, payload.payload.row, payload.payload.col);
+    applyPKPlace(payload.payload.type, payload.payload.row, payload.payload.col, payload.payload.id);
   });
 
   state.channel.on('broadcast', { event: 'gameover' }, payload => {
     if (payload.payload.win === 'zombie') {
-      state.isPlaying = false;
-      alert('僵尸胜利！植物被吃掉了脑子。');
-      location.reload();
+      state.isPlaying = false; alert('僵尸胜利！植物被吃掉了脑子。'); location.reload();
     }
   });
   
@@ -69,18 +64,38 @@ function joinRoom() {
   document.getElementById('pkMenuScreen').style.display = 'none'; document.getElementById('gameScreen').classList.add('active');
   document.getElementById('singleTopBar').style.display = 'none'; document.getElementById('pkTopBar').style.display = 'flex'; document.getElementById('sideBar').style.display = 'none';
   
-  state.pkHp = 100;
-  state.pkZombieCount = 0;
+  state.pkHp = 100; state.pkZombieCount = 0;
   updatePKUI();
   
   state.channel = dbClient.channel('room_' + roomId);
   
+  // 客机接收房主同步的画面
   state.channel.on('broadcast', { event: 'sync' }, payload => {
     const s = payload.payload; 
-    state.plants = s.plants; state.zombies = s.zombies; state.bullets = s.bullets;
+    state.plants = s.plants; 
+    state.bullets = s.bullets;
+    
+    // 画面合并策略：防止刚放的僵尸被旧数据覆盖
+    const localZombieIds = state.zombies.map(z => z.id);
+    const serverZombieIds = s.zombies.map(z => z.id);
+    
+    // 将服务端（房主）的僵尸数据作为基准
+    let mergedZombies = [...s.zombies];
+    
+    // 检查客机本地有没有房主还没同步到的“新僵尸”（网络延迟导致），如果存在则保留它，避免闪烁
+    state.zombies.forEach(localZ => {
+      if (!serverZombieIds.includes(localZ.id)) {
+        // 如果这个僵尸是刚放不到 2 秒的，强行保留在画面上
+        if (Date.now() - localZ.id < 2000) {
+          mergedZombies.push(localZ);
+        }
+      }
+    });
+    
+    state.zombies = mergedZombies;
     state.pkHp = s.hp; state.pkZombieCount = s.zombieCount;
     state.opponentName = s.hostName; 
-    updatePKUI(); // 客机收到实时同步后，立刻刷新顶部的血量和僵尸数
+    updatePKUI(); 
     renderBoard();
   });
   
@@ -112,7 +127,7 @@ function pkLoop(timestamp) {
   updatePK(dt);
   
   pkSyncTimer += dt;
-  if (pkSyncTimer > 0.1) { // 每 0.1 秒同步一次画面和血量给客机
+  if (pkSyncTimer > 0.1) { // 每 0.1 秒同步一次画面给客机
     pkSyncTimer = 0;
     state.channel.send({ type: 'broadcast', event: 'sync', payload: {
       plants: state.plants, zombies: state.zombies, bullets: state.bullets, 
@@ -140,8 +155,7 @@ function updatePK(dt) {
     } else {
       z.x -= z.speed * dt;
       if (z.x <= 0.2) {
-        state.pkHp -= 10; 
-        hpChanged = true;
+        state.pkHp -= 10; hpChanged = true;
         state.zombies = state.zombies.filter(zz => zz.id !== z.id);
         if (state.pkHp <= 0) {
           state.channel.send({ type: 'broadcast', event: 'gameover', payload: { win: 'zombie' } });
@@ -150,7 +164,7 @@ function updatePK(dt) {
       }
     }
   }
-  if (hpChanged) updatePKUI(); // 有僵尸突破防线，扣血时刷新UI
+  if (hpChanged) updatePKUI(); 
   
   state.plants.forEach(p => {
     p.cd -= dt;
@@ -202,7 +216,7 @@ function openPKQuiz() {
   document.getElementById('quizModal').classList.add('active');
 }
 
-// 答对后独立发牌
+// 答对发牌
 window.pkAnswerHandler = function(isCorrect) {
   if (isCorrect) {
     if (state.side === 'plant') {
@@ -226,26 +240,43 @@ window.pkPlaceHandler = function(type, row, col, cardIdx) {
   if (state.side === 'plant' && type.includes('zombie')) return showToast('你是植物方，不能放僵尸！');
   if (state.side === 'zombie' && !type.includes('zombie')) return showToast('你是僵尸方，不能放植物！');
   
+  // 统一生成唯一 ID（利用时间戳+随机数）
+  const uniqueId = Date.now() + Math.random();
+
   if (state.mode === 'pk_host') { 
-    applyPKPlace(type, row, col); 
+    applyPKPlace(type, row, col, uniqueId); 
   } else {
-    applyPKPlace(type, row, col);
-    state.channel.send({ type: 'broadcast', event: 'guest_place', payload: { type, row, col } });
+    // 客机本地先放，立刻渲染防闪烁
+    applyPKPlace(type, row, col, uniqueId);
+    // 把相同的 uniqueId 广播给房主
+    state.channel.send({ type: 'broadcast', event: 'guest_place', payload: { type, row, col, id: uniqueId } });
   }
   state.cards.splice(cardIdx, 1); state.selectedCardId = null; renderCards();
 };
 
-// 应用放置并刷新UI
-function applyPKPlace(type, row, col) {
+// 应用放置
+function applyPKPlace(type, row, col, customId = null) {
   if (type.includes('zombie')) {
     if (state.pkZombieCount >= 30) return showToast('僵尸放置次数已满！');
     const zType = type.replace('zombie_', '');
-    state.zombies.push({ id: Date.now()+Math.random(), row, x: 8.5, hp: ZOMBIE_TYPES[zType].hp, maxHp: ZOMBIE_TYPES[zType].hp, speed: ZOMBIE_TYPES[zType].speed, emoji: ZOMBIE_TYPES[zType].emoji, attackTimer: 0 });
+    const zData = ZOMBIE_TYPES[zType];
+    if (!zData) return showToast('找不到该僵尸类型');
+
+    state.zombies.push({ 
+      id: customId || (Date.now()+Math.random()), 
+      row, x: 8.5, 
+      hp: zData.hp, maxHp: zData.hp, 
+      speed: zData.speed, emoji: zData.emoji, img: zData.img, 
+      attackTimer: 0 
+    });
     state.pkZombieCount++;
   } else {
     if (state.plants.find(p => p.row === row && p.col === col)) return;
-    state.plants.push({ id: Date.now()+Math.random(), type, row, col, hp: PLANT_TYPES[type].hp, maxHp: PLANT_TYPES[type].hp, cd: 0, plantTime: Date.now() });
+    const pData = PLANT_TYPES[type];
+    if (!pData) return showToast('找不到该植物类型');
+    
+    state.plants.push({ id: customId || (Date.now()+Math.random()), type, row, col, hp: pData.hp, maxHp: pData.hp, cd: 0, plantTime: Date.now() });
   }
-  updatePKUI(); // 每次放置单位后刷新UI（更新剩余僵尸数量）
+  updatePKUI();
   renderBoard();
 }
