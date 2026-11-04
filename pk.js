@@ -83,10 +83,9 @@ function joinRoom() {
     let mergedZombies = [...s.zombies];
     
     // 检查客机本地有没有房主还没同步到的“新僵尸”（网络延迟导致），如果存在则保留它，避免闪烁
-    state.zombies.forEach(localZ => {
+ state.zombies.forEach(localZ => {
       if (!serverZombieIds.includes(localZ.id)) {
-        // 如果这个僵尸是刚放不到 2 秒的，强行保留在画面上
-        if (Date.now() - localZ.id < 2000) {
+        if (Date.now() - localZ.createTime < 2000) { // 用真实的创建时间对比
           mergedZombies.push(localZ);
         }
       }
@@ -221,21 +220,35 @@ window.pkAnswerHandler = function(isCorrect) {
   if (isCorrect) {
     if (state.side === 'plant') {
       const plants = ['peashooter', 'cornpult', 'snowpea', 'repeater', 'wallnut', 'cannon'];
+      // 👇 动态加入本地和全局自定义植物
+      Object.keys(PLANT_TYPES).forEach(k => { 
+        if(k.startsWith('custom_') || k.startsWith('global_')) plants.push(k); 
+      });
+      
       const randType = plants[Math.floor(Math.random() * plants.length)];
       state.cards.push({ id: Date.now(), type: randType }); renderCards();
       showToast(`答对啦！获得植物：${PLANT_TYPES[randType].name}！`);
+      
     } else {
       const zombies = ['normal', 'cone', 'bucket', 'football', 'girl'];
+      // 👇 动态加入本地和全局自定义僵尸
+      Object.keys(ZOMBIE_TYPES).forEach(k => { 
+        if(k.startsWith('custom_') || k.startsWith('global_')) zombies.push(k); 
+      });
+      
       const randType = zombies[Math.floor(Math.random() * zombies.length)];
-      state.cards.push({ id: Date.now(), type: 'zombie_' + randType }); renderCards();
+      // 如果抽到的是自定义僵尸，它的命名规则已经是 custom_zombie_0 这种格式，不需要再加前缀
+      // 如果是普通僵尸，才需要加 'zombie_' 前缀
+      const cardType = randType.startsWith('custom_') || randType.startsWith('global_') ? randType : 'zombie_' + randType;
+      
+      state.cards.push({ id: Date.now(), type: cardType }); renderCards();
       showToast(`答对啦！获得僵尸：${ZOMBIE_TYPES[randType].name}！`);
     }
     
-    // 👇👇👇 新增：1% 概率出音乐宝箱 👇👇👇
+    // 1% 概率出音乐宝箱
     if (Math.random() < 0.01) {
       setTimeout(() => { openBox('music'); }, 800);
     }
-    // 👆👆👆 新增结束 👆👆👆
     
   } else {
     showToast('答错了！再试一次吧。');
@@ -248,11 +261,15 @@ window.pkPlaceHandler = function(type, row, col, cardIdx) {
   if (state.side === 'zombie' && !type.includes('zombie')) return showToast('你是僵尸方，不能放植物！');
   
   // 统一生成唯一 ID（利用时间戳+随机数）
-  const uniqueId = Date.now() + Math.random();
+   const createTime = Date.now();
+  const uniqueId = createTime + '_' + Math.random(); // 纯字符串ID
 
   if (state.mode === 'pk_host') { 
-    applyPKPlace(type, row, col, uniqueId); 
+    applyPKPlace(type, row, col, uniqueId, createTime); 
   } else {
+    applyPKPlace(type, row, col, uniqueId, createTime);
+    state.channel.send({ type: 'broadcast', event: 'guest_place', payload: { type, row, col, id: uniqueId, createTime } });
+  }
     // 客机本地先放，立刻渲染防闪烁
     applyPKPlace(type, row, col, uniqueId);
     // 把相同的 uniqueId 广播给房主
@@ -262,7 +279,11 @@ window.pkPlaceHandler = function(type, row, col, cardIdx) {
 };
 
 // 应用放置
-function applyPKPlace(type, row, col, customId = null) {
+function applyPKPlace(type, row, col, customId = null, createTime = Date.now()) {
+  // ...
+    state.zombies.push({ 
+      id: customId || (Date.now()+Math.random()), 
+      createTime: createTime, // 记录创建时间
   if (type.includes('zombie')) {
     if (state.pkZombieCount >= 30) return showToast('僵尸放置次数已满！');
     const zType = type.replace('zombie_', '');
