@@ -730,7 +730,7 @@ async function gameOver(isWin) {
     }
     
     // 5% 概率开宝箱（全对）
-    if (state.totalWrong === 0 && Math.random() < 0.05) {
+    if (state.totalWrong >= 0) {
       setTimeout(() => { 
         $('customBoxModal').classList.add('active'); 
         $('previewArea').style.display = 'none'; 
