@@ -1056,8 +1056,46 @@ async function revokeChar(id) {
 // PPT生成
 let allTeacherWrongData = [];
 let validPptQuestions = []; 
-function renderPPTList() { /* 原代码逻辑保持不变 */ }
-function exportToPPT() { /* 原代码逻辑保持不变 */ }
+let allTeacherWrongData = [];
+let validPptQuestions = []; 
+function renderPPTList() {
+  const listEl = $('pptList'); listEl.innerHTML = '';
+  if (allTeacherWrongData.length === 0) { listEl.innerHTML = '<div style="text-align:center; padding:20px;">暂无数据</div>'; return; }
+  const validData = allTeacherWrongData.filter(r => r.time_spent >= 3);
+  const errorCounts = {};
+  validData.forEach(row => {
+    if (!errorCounts[row.question_text]) errorCounts[row.question_text] = { count: 0, options: row.options, correct: row.correct_answer };
+    errorCounts[row.question_text].count++;
+  });
+  const sortedQuestions = Object.keys(errorCounts).map(q => { return { question: q, ...errorCounts[q] }; }).sort((a, b) => b.count - a.count);
+  validPptQuestions = sortedQuestions.filter(q => q.count >= 2).slice(0, 15); 
+  if (validPptQuestions.length === 0) { listEl.innerHTML = '<div style="text-align:center; padding:20px;">目前没有错误率极高的题目(已过滤3秒内秒选)。</div>'; return; }
+  validPptQuestions.forEach((qData, idx) => {
+    const div = document.createElement('div'); div.className = 'ppt-item';
+    div.innerHTML = `<div class="ppt-item-info"><div class="ppt-item-title">${idx + 1}. ${qData.question}</div><div class="ppt-item-stats">累计错误次数：${qData.count} 次 | 正确答案：${qData.correct}</div></div><input type="checkbox" class="ppt-checkbox" value="${idx}" checked>`;
+    listEl.appendChild(div);
+  });
+}
+
+function exportToPPT() {
+  if (validPptQuestions.length === 0) return showToast('没有可导出的题目！');
+  const checkboxes = document.querySelectorAll('.ppt-checkbox:checked');
+  if (checkboxes.length === 0) return showToast('请至少勾选一道题目！');
+  const pptx = new PptxGenJS(); pptx.layout = 'LAYOUT_16x9';
+  checkboxes.forEach(cb => {
+    const qData = validPptQuestions[cb.value];
+    const slide = pptx.addSlide();
+    slide.addText("重点错题讲解", { x: 0.5, y: 0.2, w: 9, h: 0.5, fontSize: 24, bold: true, color: "e53935" });
+    slide.addText(`题目：${qData.question}`, { x: 0.5, y: 1.0, w: 9, h: 1.5, fontSize: 18, color: "333333", wrap: true });
+    const optsArr = qData.options.split(' | '); let optText = "";
+    optsArr.forEach((opt, i) => { optText += `${String.fromCharCode(65 + i)}. ${opt}\n`; });
+    slide.addText(optText, { x: 0.5, y: 2.8, w: 9, h: 2.0, fontSize: 16, color: "555555" });
+    slide.addText(`正确答案：${qData.correct}`, { x: 0.5, y: 5.0, w: 9, h: 0.5, fontSize: 20, bold: true, color: "4caf50" });
+    slide.addText(`⚠️ 该题全班累计做错 ${qData.count} 次，请重点分析！`, { x: 0.5, y: 5.5, w: 9, h: 0.5, fontSize: 16, color: "e53935" });
+    slide.addText("讲解思路：（老师在此补充）", { x: 0.5, y: 6.0, w: 9, h: 0.5, fontSize: 14, color: "999999", italic: true });
+  });
+  pptx.writeFile({ fileName: "物理错题讲解_自动生成.pptx" });
+}
 </script>
 
 <!-- 引入双人PK逻辑 -->
