@@ -919,11 +919,51 @@ function processImage(input) {
     }; reader.readAsDataURL(input.files[0]);
   }
 }
+  // 融合图片函数
+function createCombinedImage(type) {
+  const userCanvas = document.getElementById('qCanvas');
+  const combinedCanvas = document.createElement('canvas');
+  combinedCanvas.width = 64;
+  combinedCanvas.height = 64;
+  const ctx = combinedCanvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  // 1. 画底座（身体）
+  if (type.includes('plant')) {
+    // 植物：画一个棕色花盆和绿叶
+    ctx.fillStyle = '#8b5a2b'; // 花盆
+    ctx.beginPath(); ctx.moveTo(16, 48); ctx.lineTo(48, 48); ctx.lineTo(44, 64); ctx.lineTo(20, 64); ctx.fill();
+    ctx.fillStyle = '#4caf50'; // 绿叶底垫
+    ctx.beginPath(); ctx.ellipse(32, 48, 24, 10, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#388e3c'; // 叶子细节
+    ctx.beginPath(); ctx.ellipse(16, 48, 8, 6, Math.PI/4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(48, 48, 8, 6, -Math.PI/4, 0, Math.PI * 2); ctx.fill();
+  } else if (type.includes('zombie')) {
+    // 僵尸：画灰绿色身体和伸出的手
+    ctx.fillStyle = '#556b2f'; // 灰绿衣服
+    ctx.fillRect(16, 40, 32, 24);
+    ctx.fillStyle = '#7cb342'; // 僵尸手臂
+    ctx.fillRect(0, 32, 16, 8); ctx.fillRect(48, 32, 16, 8);
+  }
+
+  // 2. 把学生的像素头像贴在中间
+  ctx.drawImage(userCanvas, 8, 8, 48, 48);
+
+  // 3. 如果是僵尸，给整个头像蒙上一层幽绿色
+  if (type.includes('zombie')) {
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = 'rgba(100, 255, 100, 0.3)';
+    ctx.fillRect(8, 8, 48, 48);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  return combinedCanvas.toDataURL('image/png');
+}
 async function saveCustomChar() {
   const name = $('charName').value.trim();
   if (!name) return showToast('请给角色起个名字！');
   
-  const imgBase64 = $('qCanvas').toDataURL('image/png');
+    const imgBase64 = createCombinedImage(currentBoxType);
   const isPlant = currentBoxType.includes('plant');
   const isShared = currentBoxType.includes('shared');
   
