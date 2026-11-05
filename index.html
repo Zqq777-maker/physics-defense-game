@@ -7,7 +7,7 @@
 <script src="https://cdn.jsdelivr.net.cn/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <style>
-  /* ======== 样式部分保持不变 ======== */
+  /* 样式部分完全不变，请保留你原有的 <style> */
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; user-select: none; }
   body { margin: 0; background: #2c3e20; color: #333; display: flex; justify-content: center; min-height: 100vh; }
   #loginScreen, #levelSelectScreen, #pkMenuScreen { position: fixed; inset: 0; background: rgba(15, 25, 10, 0.95); z-index: 1000; display: none; flex-direction: column; justify-content: center; align-items: center; }
@@ -100,6 +100,7 @@
 
 <div id="toast"></div>
 
+<!-- 登录与大厅 -->
 <div id="loginScreen">
   <div class="login-box">
     <h2>🌻 物理防御战 🌻</h2>
@@ -117,17 +118,7 @@
     <button class="login-btn pk-btn" onclick="showPKMenu()">⚔️ 双人实时PK</button>
   </div>
 </div>
-<!-- 背包弹窗 -->
-<div class="modal" id="bagModal">
-  <div class="quiz-card" style="text-align:center;">
-    <h2 style="color:#558b2f; margin-top:0;">🎒 我的背包</h2>
-    <p style="font-size:13px; color:#666; margin-bottom:15px;">在这里存放你获得的宝箱，点击即可打开。</p>
-    <div id="bagItemsList" style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; min-height:100px;">
-      <!-- 宝箱动态渲染 -->
-    </div>
-    <button class="quiz-submit" style="background:#999; margin-top:15px;" onclick="document.getElementById('bagModal').classList.remove('active')">关闭背包</button>
-  </div>
-</div>
+
 <div id="pkMenuScreen">
   <div class="login-box">
     <h2>⚔️ 双人对战大厅</h2>
@@ -138,27 +129,22 @@
     <button class="login-btn" style="background:#777; box-shadow:0 4px 0 #444;" onclick="document.getElementById('pkMenuScreen').style.display='none'; document.getElementById('levelSelectScreen').style.display='flex';">返回</button>
   </div>
 </div>
-<!-- 在 singleTopBar 里加： -->
-<button class="quiz-btn" style="background:#8bc34a; box-shadow:0 3px 0 #558b2f;" onclick="openBag()">🎒 背包</button>
 
-<!-- 在 pkTopBar 里也加： -->
-<button class="quiz-btn" style="background:#8bc34a; box-shadow:0 3px 0 #558b2f;" onclick="openBag()">🎒 背包</button>
+<!-- 主游戏界面 -->
 <div id="gameScreen">
   <div id="singleTopBar" class="top-bar" style="display:flex;">
     <div>👤 <span id="uiName"></span></div>
     <div>⭐ 积分: <span id="uiScore">0</span></div>
     <div>🧟 进度: <span id="zombieProgress">0/20</span></div>
+    <button class="quiz-btn" style="background:#8bc34a; box-shadow:0 3px 0 #558b2f;" onclick="openBag()">🎒 背包</button>
     <button id="musicBtn" class="quiz-btn" style="background:#2196f3;" onclick="toggleMusic()">🎵 音乐开</button>
     <button class="quiz-btn" onclick="openQuiz()">📝 答题获植物</button>
     <button id="feedbackBtn" class="quiz-btn" style="background:#9c27b0; display:none;" onclick="openFeedback()">📝 写小纸条 (<span id="feedbackChances">0</span>)</button>
   </div>
-<!-- 在 singleTopBar 里加： -->
-<button class="quiz-btn" style="background:#8bc34a; box-shadow:0 3px 0 #558b2f;" onclick="openBag()">🎒 背包</button>
 
-<!-- 在 pkTopBar 里也加： -->
-<button class="quiz-btn" style="background:#8bc34a; box-shadow:0 3px 0 #558b2f;" onclick="openBag()">🎒 背包</button>
   <div id="pkTopBar" class="pk-info-bar" style="display:none;">
     <div class="pk-side-info" id="pkPlayer1Info">房主(植物) HP:100</div>
+    <button class="quiz-btn" style="background:#8bc34a; box-shadow:0 3px 0 #558b2f;" onclick="openBag()">🎒 背包</button>
     <button class="quiz-btn" style="background:#ff9800; font-size:16px; padding:12px 24px;" onclick="openPKQuiz()">📝 答题开盲盒</button>
     <div class="pk-side-info" id="pkPlayer2Info">客机(僵尸) 剩余:30</div>
   </div>
@@ -184,6 +170,7 @@
   </div>
 </div>
 
+<!-- 弹窗组 -->
 <div class="modal" id="quizModal">
   <div class="quiz-card">
     <div class="quiz-image-wrap"><img id="quizImage" src=""></div>
@@ -226,15 +213,12 @@
   </div>
 </div>
 
-<!-- 修复后的宝箱弹窗（增加音乐和角色双区域） -->
 <div class="modal" id="customBoxModal">
   <div class="quiz-card custom-form" style="text-align:center;">
     <h2 style="color:#e91e63; margin-top:0;" id="boxTitle">✨ 恭喜开出宝箱！ ✨</h2>
     <p style="font-size:14px; color:#555;" id="boxDesc">上传你的照片，创造专属角色！</p>
     
-    <!-- 图片上传区 -->
     <input type="file" id="photoUpload" accept="image/*" style="display:none;" onchange="processImage(this)">
-    <!-- 音乐上传区 -->
     <input type="file" id="musicUpload" accept="audio/mp4,video/mp4" style="display:none;" onchange="processMusic(this)">
     
     <div id="photoBtnArea">
@@ -244,14 +228,11 @@
       <button class="quiz-submit" style="background:#9c27b0; margin-bottom:15px;" onclick="document.getElementById('musicUpload').click()">🎵 上传 MP4 音乐</button>
     </div>
 
-    <!-- 照片预览与角色设置 -->
     <div id="previewArea" style="display:none;">
       <canvas id="qCanvas" width="64" height="64" style="border:4px solid #7b5b3f; border-radius:10px; margin-bottom:10px; background:#fff; width:128px; height:128px; image-rendering:pixelated; display:block; margin:0 auto;"></canvas>
       
       <label>角色名字（最多6个字）</label>
       <input type="text" id="charName" maxlength="6" placeholder="例如：无敌小土豆">
-      
-      <!-- 隐藏的 select，由 openBox 动态赋值 -->
       <input type="hidden" id="charType" value="plant">
       
       <div id="plantForm" style="display:block;">
@@ -278,11 +259,21 @@
       <button class="quiz-submit" style="background:#4caf50; margin-top:20px;" onclick="saveCustomChar()">保存并关闭</button>
     </div>
 
-    <!-- 音乐预览与设置 -->
     <div id="musicPreviewArea" style="display:none;">
       <p style="color:#4caf50; font-weight:bold;">✅ 音乐已加载，点击保存生效。</p>
       <button class="quiz-submit" style="background:#4caf50; margin-top:20px;" onclick="saveMusic()">保存并关闭</button>
     </div>
+  </div>
+</div>
+
+<div class="modal" id="bagModal">
+  <div class="quiz-card" style="text-align:center;">
+    <h2 style="color:#558b2f; margin-top:0;">🎒 我的背包</h2>
+    <p style="font-size:13px; color:#666; margin-bottom:15px;">在这里存放你获得的宝箱，点击即可打开。</p>
+    <div id="bagItemsList" style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; min-height:100px;">
+      <!-- 宝箱动态渲染 -->
+    </div>
+    <button class="quiz-submit" style="background:#999; margin-top:15px;" onclick="document.getElementById('bagModal').classList.remove('active')">关闭背包</button>
   </div>
 </div>
 
@@ -331,14 +322,11 @@ function showToast(msg) {
   toastTimeout = setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.style.display = 'none', 300); }, 2000);
 }
 
-// ====== 新增：宝箱相关逻辑 ======
-let currentBoxType = ''; 
-let tempMusicBase64 = '';
-// ================= 背包系统 =================
+// ====== 背包系统 ======
 let bagItems = JSON.parse(localStorage.getItem('pvz_bag') || '[]');
 
 function addToBag(type) {
-  bagItems.push({ id: Date.now(), type: type });
+  bagItems.push({ id: Date.now() + Math.random(), type: type });
   localStorage.setItem('pvz_bag', JSON.stringify(bagItems));
   showToast('🎁 宝箱已存入背包！');
 }
@@ -350,8 +338,7 @@ function openBag() {
     list.innerHTML = '<div style="color:#888; width:100%;">背包空空如也，快去答题吧！</div>';
   } else {
     bagItems.forEach(item => {
-      let icon = '🎁';
-      let name = '神秘宝箱';
+      let icon = '🎁'; let name = '神秘宝箱';
       if (item.type.includes('plant')) { icon = '🌱'; name = '植物宝箱'; }
       if (item.type.includes('zombie')) { icon = '🧟'; name = '僵尸宝箱'; }
       if (item.type === 'music') { icon = '🎵'; name = '音乐宝箱'; }
@@ -359,10 +346,7 @@ function openBag() {
 
       const div = document.createElement('div');
       div.style.cssText = 'border:2px solid #7b5b3f; border-radius:8px; padding:10px; width:80px; cursor:pointer; background:#f4f1ea;';
-      div.innerHTML = `
-        <div style="font-size:32px;">${icon}</div>
-        <div style="font-size:12px; font-weight:bold; margin-top:5px;">${name}</div>
-      `;
+      div.innerHTML = `<div style="font-size:32px;">${icon}</div><div style="font-size:12px; font-weight:bold; margin-top:5px;">${name}</div>`;
       div.onclick = () => useBagItem(item.id);
       list.appendChild(div);
     });
@@ -377,11 +361,13 @@ function useBagItem(id) {
   bagItems.splice(idx, 1); // 从背包移除
   localStorage.setItem('pvz_bag', JSON.stringify(bagItems));
   document.getElementById('bagModal').classList.remove('active');
-  
-  // 打开对应宝箱
   openBox(type);
 }
-// ==========================================
+
+// ====== 宝箱相关逻辑 ======
+let currentBoxType = ''; 
+let tempMusicBase64 = '';
+
 function openBox(type) {
   currentBoxType = type;
   const modal = document.getElementById('customBoxModal');
@@ -455,7 +441,6 @@ function playNextNote() {
   osc.start(now); osc.stop(now + 0.15);
   currentNoteIndex = (currentNoteIndex + 1) % notes.length;
 }
-
 function startMusic()  {
   const customBgm = localStorage.getItem('pvz_custom_bgm');
   if (customBgm) {
@@ -471,7 +456,6 @@ function startMusic()  {
   if (audioCtx.state === 'suspended') audioCtx.resume(); 
   musicInterval = setInterval(playNextNote, 200); 
 }
-
 function toggleMusic() { 
   isMusicMuted = !isMusicMuted; 
   const btn = document.getElementById('musicBtn'); 
@@ -579,6 +563,14 @@ function startGame(level) {
   $('uiName').textContent = state.name;
   if (level === 2) $('feedbackBtn').style.display = 'inline-block';
   
+  // 🎁 测试版福利：开局直接送 5 个宝箱入背包
+  addToBag('local_plant');
+  addToBag('local_zombie');
+  addToBag('shared_plant');
+  addToBag('shared_zombie');
+  addToBag('music');
+  showToast('测试模式：已发放 5 个宝箱到背包！');
+
   dbClient.rpc('get_top_scores', { p_limit: 1000, p_offset: 0 }).then(({data}) => {
     const me = data?.find(p => p.name === state.name && p.class === state.class);
     if (me) { state.score = me.score; $('uiScore').textContent = state.score; }
@@ -752,8 +744,11 @@ let currentQ = null, selectedOpts = new Set(), isAnswering = false, qPool = [];
 let quizStartTime = 0, quizModifyCount = 0;
 
 function openQuiz() {
-  if (state.mode === 'single' && state.zombies.length > 0) { if (!confirm('答题会暂停游戏，是否继续？')) return; }
-  if (state.mode === 'single') state.isPlaying = false; 
+  // ================= 答题时暂停游戏 =================
+  if (state.mode === 'single') {
+    state.isPlaying = false; 
+  }
+  
   if (qPool.length === 0) {
     const qs = state.level === 1 ? QUESTIONS_L1 : QUESTIONS_L2;
     qPool = qs.map((_, i) => i).sort(() => Math.random() - 0.5);
@@ -785,7 +780,6 @@ function onOptClick(i, btn) {
   } else { selectedOpts = new Set([i]); btn.classList.add('selected'); submitAnswer(); }
 }
 
-// 修复后的 submitAnswer
 function submitAnswer() {
   if (isAnswering || selectedOpts.size === 0) return;
   isAnswering = true;
@@ -804,9 +798,9 @@ function submitAnswer() {
     if (isCorrect) {
       if (state.mode === 'single') {
         updateScore(20); 
-        showBlindbox();
+        showBlindbox(); // 盲盒结束后会自动恢复游戏
         if (Math.random() < 0.01) {
-     setTimeout(() => { addToBag('music'); }, 500);
+          setTimeout(() => { addToBag('music'); }, 500);
         }
       } else {
         if (window.pkAnswerHandler) window.pkAnswerHandler(true);
@@ -815,7 +809,8 @@ function submitAnswer() {
       if (state.mode === 'single') {
         state.totalWrong++; state.wrongQuestions.push({ ...currentQ, timeSpent, modifyCount: quizModifyCount });
         state.speedBonus += 0.1; $('uiSpeedBonus').textContent = '+' + state.speedBonus.toFixed(1);
-        showToast('答错了！僵尸加速！'); resumeGame();
+        showToast('答错了！僵尸加速！'); 
+        resumeGame(); // 答错了立刻恢复游戏
       } else {
         if (window.pkAnswerHandler) window.pkAnswerHandler(false);
       }
@@ -849,14 +844,25 @@ function openBlindbox() {
       if (isFirstTime) { 
         $('infoEmoji').innerHTML = plantData.img ? `<img src="${plantData.img}" style="width:100px; height:100px; image-rendering:pixelated;">` : plantData.emoji;
         $('infoName').textContent = plantData.name; $('infoDesc').textContent = plantData.desc; $('plantInfoModal').classList.add('active');
-      } else { resumeGame(); }
+      } else { 
+        resumeGame(); // 不是第一次，直接恢复游戏
+      }
     }, 2000);
   }, 800);
 }
-function closePlantInfo() { $('plantInfoModal').classList.remove('active'); resumeGame(); }
-function resumeGame() { if (state.mode === 'single' && !state.isPlaying) { state.isPlaying = true; state.lastTime = performance.now(); requestAnimationFrame(gameLoop); } }
+function closePlantInfo() { 
+  $('plantInfoModal').classList.remove('active'); 
+  resumeGame(); // 关闭图鉴后恢复游戏
+}
+// 核心恢复函数
+function resumeGame() { 
+  if (state.mode === 'single') { 
+    state.isPlaying = true; 
+    state.lastTime = performance.now(); 
+    requestAnimationFrame(gameLoop); 
+  } 
+}
 
-// 修复后的 gameOver
 async function gameOver(isWin) {
   state.isPlaying = false;
   $('resultTitle').textContent = isWin ? '🎉 挑战成功！' : '💀 僵尸吃掉了你的脑子！';
@@ -873,17 +879,9 @@ async function gameOver(isWin) {
       chances++; localStorage.setItem('pvz_feedback_chances', chances); $('feedbackChances').textContent = chances;
       notice.innerHTML += `🎁 通关第二关！获得 1 次【📝 写小纸条】机会！<br>`;
     }
-    
-    // 4种宝箱触发逻辑
-    if (state.totalWrong === 0) {
-      if (Math.random() < 0.05) {
-  setTimeout(() => { addToBag(Math.random() > 0.5 ? 'shared_plant' : 'shared_zombie'); }, 1000);
-}
-    } else {
-      if (Math.random() < 0.05) {
-  setTimeout(() => { addToBag(Math.random() > 0.5 ? 'local_plant' : 'local_zombie'); }, 1000);
-}
-    }
+    // 测试版通关送宝箱
+    addToBag('shared_plant');
+    addToBag('shared_zombie');
   }
   
   const wrongArea = $('wrongQuestionsArea');
@@ -906,7 +904,7 @@ async function gameOver(isWin) {
   }
 }
 
-// 修复后的 processImage
+// 图片、音乐、小纸条、排行榜、教师端等逻辑保持原样
 function processImage(input) {
   if (input.files && input.files[0]) {
     const reader = new FileReader();
@@ -921,8 +919,6 @@ function processImage(input) {
     }; reader.readAsDataURL(input.files[0]);
   }
 }
-
-// 修复后的 saveCustomChar
 async function saveCustomChar() {
   const name = $('charName').value.trim();
   if (!name) return showToast('请给角色起个名字！');
@@ -936,13 +932,8 @@ async function saveCustomChar() {
   
   if (isShared) {
     const { error } = await dbClient.from('shared_chars').insert({
-      creator_name: state.name,
-      char_type: isPlant ? 'shared_plant' : 'shared_zombie',
-      name: name,
-      img_base64: imgBase64,
-      attr_speed: speed,
-      attr_hp: hp,
-      status: 'pending'
+      creator_name: state.name, char_type: isPlant ? 'shared_plant' : 'shared_zombie',
+      name: name, img_base64: imgBase64, attr_speed: speed, attr_hp: hp, status: 'pending'
     });
     if (error) showToast('上传失败'); else showToast('已提交审核！');
   } else {
@@ -955,12 +946,9 @@ async function saveCustomChar() {
     }
     showToast('保存成功！下次答题/刷怪生效');
   }
-  
   $('customBoxModal').classList.remove('active');
   location.reload();
 }
-
-// 小纸条等逻辑
 function openFeedback() { let chances = parseInt(localStorage.getItem('pvz_feedback_chances') || '0'); if (chances <= 0) return showToast('没有写纸条的次数了！'); $('feedbackContent').value = ''; $('feedbackModal').classList.add('active'); }
 async function submitFeedback() {
   const content = $('feedbackContent').value.trim(); if (!content) return showToast('请写点什么！'); let chances = parseInt(localStorage.getItem('pvz_feedback_chances') || '0'); if (chances <= 0) return showToast('次数不足！');
@@ -969,7 +957,6 @@ async function submitFeedback() {
   btn.disabled = false; btn.textContent = '发送给老师';
   if (error) showToast('发送失败！'); else { chances--; localStorage.setItem('pvz_feedback_chances', chances); $('feedbackChances').textContent = chances; showToast('已成功发送！'); $('feedbackModal').classList.remove('active'); }
 }
-
 async function fetchLeaderboard() {
   const { data, error } = await dbClient.rpc('get_top_scores', { p_limit: 20, p_offset: 0 });
   if (error) return; const ul = $('leaderboard'); ul.innerHTML = '';
@@ -981,7 +968,6 @@ async function updateScore(addScore) {
   state.score += addScore; $('uiScore').textContent = state.score;
   await dbClient.rpc('submit_score', { p_name: state.name, p_class: state.class, p_score: state.score });
 }
-
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.teacher-table').forEach(t => t.classList.remove('active'));
@@ -990,7 +976,6 @@ function switchTab(tab) {
   else if (tab === 'feedback') { document.querySelectorAll('.tab-btn')[2].classList.add('active'); $('table-feedback').classList.add('active'); }
   else if (tab === 'audit') { document.querySelectorAll('.tab-btn')[3].classList.add('active'); $('table-audit').classList.add('active'); renderAuditList(); }
 }
-
 let allTeacherWrongData = [];
 async function loadTeacherData() {
   const tbodyWrong = $('teacherWrongBody'); tbodyWrong.innerHTML = '<tr><td colspan="6" style="text-align:center;">加载中...</td></tr>';
@@ -1005,7 +990,6 @@ async function loadTeacherData() {
       tbodyWrong.innerHTML += `<tr><td>${date}</td><td>${row.student_class}</td><td>${row.student_name}</td><td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${row.question_text}">${row.question_text}</td><td style="color:${row.time_spent < 3 ? 'red' : (row.time_spent > 60 ? 'orange':'green')}">${timeStr}</td><td>${modStr}</td></tr>`;
     });
   }
-  
   const tbodyFeedback = $('teacherFeedbackBody'); tbodyFeedback.innerHTML = '<tr><td colspan="4" style="text-align:center;">加载中...</td></tr>';
   const { data: dataFeedback } = await dbClient.from('feedbacks').select('*').order('created_at', { ascending: false }).limit(200);
   if (!dataFeedback || dataFeedback.length === 0) tbodyFeedback.innerHTML = '<tr><td colspan="4" style="text-align:center;">暂无意见</td></tr>';
@@ -1017,13 +1001,10 @@ async function loadTeacherData() {
     });
   }
 }
-
-// 审核台
 async function renderAuditList() {
   const listEl = $('auditList'); listEl.innerHTML = '<div>加载中...</div>';
   const { data } = await dbClient.from('shared_chars').select('*').order('created_at', { ascending: false });
   if (!data || data.length === 0) { listEl.innerHTML = '<div>暂无共享角色提交</div>'; return; }
-  
   listEl.innerHTML = '';
   data.forEach(d => {
     const div = document.createElement('div');
@@ -1042,21 +1023,17 @@ async function renderAuditList() {
     listEl.appendChild(div);
   });
 }
-
 async function approveChar(id) {
   await dbClient.from('shared_chars').update({ status: 'approved' }).eq('id', id);
   showToast('审核已通过！');
   renderAuditList();
 }
-
 async function revokeChar(id) {
   if (!confirm('确定要撤回该角色吗？撤回后全班将无法抽到。')) return;
   await dbClient.from('shared_chars').update({ status: 'revoked' }).eq('id', id);
   showToast('已撤回！');
   renderAuditList();
 }
-
-// PPT生成
 let validPptQuestions = []; 
 function renderPPTList() {
   const listEl = $('pptList'); listEl.innerHTML = '';
@@ -1076,7 +1053,6 @@ function renderPPTList() {
     listEl.appendChild(div);
   });
 }
-
 function exportToPPT() {
   if (validPptQuestions.length === 0) return showToast('没有可导出的题目！');
   const checkboxes = document.querySelectorAll('.ppt-checkbox:checked');
