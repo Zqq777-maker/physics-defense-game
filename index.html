@@ -117,7 +117,17 @@
     <button class="login-btn pk-btn" onclick="showPKMenu()">⚔️ 双人实时PK</button>
   </div>
 </div>
-
+<!-- 背包弹窗 -->
+<div class="modal" id="bagModal">
+  <div class="quiz-card" style="text-align:center;">
+    <h2 style="color:#558b2f; margin-top:0;">🎒 我的背包</h2>
+    <p style="font-size:13px; color:#666; margin-bottom:15px;">在这里存放你获得的宝箱，点击即可打开。</p>
+    <div id="bagItemsList" style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; min-height:100px;">
+      <!-- 宝箱动态渲染 -->
+    </div>
+    <button class="quiz-submit" style="background:#999; margin-top:15px;" onclick="document.getElementById('bagModal').classList.remove('active')">关闭背包</button>
+  </div>
+</div>
 <div id="pkMenuScreen">
   <div class="login-box">
     <h2>⚔️ 双人对战大厅</h2>
@@ -128,7 +138,11 @@
     <button class="login-btn" style="background:#777; box-shadow:0 4px 0 #444;" onclick="document.getElementById('pkMenuScreen').style.display='none'; document.getElementById('levelSelectScreen').style.display='flex';">返回</button>
   </div>
 </div>
+<!-- 在 singleTopBar 里加： -->
+<button class="quiz-btn" style="background:#8bc34a; box-shadow:0 3px 0 #558b2f;" onclick="openBag()">🎒 背包</button>
 
+<!-- 在 pkTopBar 里也加： -->
+<button class="quiz-btn" style="background:#8bc34a; box-shadow:0 3px 0 #558b2f;" onclick="openBag()">🎒 背包</button>
 <div id="gameScreen">
   <div id="singleTopBar" class="top-bar" style="display:flex;">
     <div>👤 <span id="uiName"></span></div>
@@ -138,7 +152,11 @@
     <button class="quiz-btn" onclick="openQuiz()">📝 答题获植物</button>
     <button id="feedbackBtn" class="quiz-btn" style="background:#9c27b0; display:none;" onclick="openFeedback()">📝 写小纸条 (<span id="feedbackChances">0</span>)</button>
   </div>
+<!-- 在 singleTopBar 里加： -->
+<button class="quiz-btn" style="background:#8bc34a; box-shadow:0 3px 0 #558b2f;" onclick="openBag()">🎒 背包</button>
 
+<!-- 在 pkTopBar 里也加： -->
+<button class="quiz-btn" style="background:#8bc34a; box-shadow:0 3px 0 #558b2f;" onclick="openBag()">🎒 背包</button>
   <div id="pkTopBar" class="pk-info-bar" style="display:none;">
     <div class="pk-side-info" id="pkPlayer1Info">房主(植物) HP:100</div>
     <button class="quiz-btn" style="background:#ff9800; font-size:16px; padding:12px 24px;" onclick="openPKQuiz()">📝 答题开盲盒</button>
@@ -316,7 +334,54 @@ function showToast(msg) {
 // ====== 新增：宝箱相关逻辑 ======
 let currentBoxType = ''; 
 let tempMusicBase64 = '';
+// ================= 背包系统 =================
+let bagItems = JSON.parse(localStorage.getItem('pvz_bag') || '[]');
 
+function addToBag(type) {
+  bagItems.push({ id: Date.now(), type: type });
+  localStorage.setItem('pvz_bag', JSON.stringify(bagItems));
+  showToast('🎁 宝箱已存入背包！');
+}
+
+function openBag() {
+  const list = document.getElementById('bagItemsList');
+  list.innerHTML = '';
+  if (bagItems.length === 0) {
+    list.innerHTML = '<div style="color:#888; width:100%;">背包空空如也，快去答题吧！</div>';
+  } else {
+    bagItems.forEach(item => {
+      let icon = '🎁';
+      let name = '神秘宝箱';
+      if (item.type.includes('plant')) { icon = '🌱'; name = '植物宝箱'; }
+      if (item.type.includes('zombie')) { icon = '🧟'; name = '僵尸宝箱'; }
+      if (item.type === 'music') { icon = '🎵'; name = '音乐宝箱'; }
+      if (item.type.includes('shared')) { icon = '💎'; name = '稀有共享'; }
+
+      const div = document.createElement('div');
+      div.style.cssText = 'border:2px solid #7b5b3f; border-radius:8px; padding:10px; width:80px; cursor:pointer; background:#f4f1ea;';
+      div.innerHTML = `
+        <div style="font-size:32px;">${icon}</div>
+        <div style="font-size:12px; font-weight:bold; margin-top:5px;">${name}</div>
+      `;
+      div.onclick = () => useBagItem(item.id);
+      list.appendChild(div);
+    });
+  }
+  document.getElementById('bagModal').classList.add('active');
+}
+
+function useBagItem(id) {
+  const idx = bagItems.findIndex(i => i.id === id);
+  if (idx === -1) return;
+  const type = bagItems[idx].type;
+  bagItems.splice(idx, 1); // 从背包移除
+  localStorage.setItem('pvz_bag', JSON.stringify(bagItems));
+  document.getElementById('bagModal').classList.remove('active');
+  
+  // 打开对应宝箱
+  openBox(type);
+}
+// ==========================================
 function openBox(type) {
   currentBoxType = type;
   const modal = document.getElementById('customBoxModal');
@@ -741,7 +806,7 @@ function submitAnswer() {
         updateScore(20); 
         showBlindbox();
         if (Math.random() < 0.01) {
-          setTimeout(() => { openBox('music'); }, 500);
+     setTimeout(() => { addToBag('music'); }, 500);
         }
       } else {
         if (window.pkAnswerHandler) window.pkAnswerHandler(true);
@@ -812,12 +877,12 @@ async function gameOver(isWin) {
     // 4种宝箱触发逻辑
     if (state.totalWrong === 0) {
       if (Math.random() < 0.05) {
-        setTimeout(() => { openBox(Math.random() > 0.5 ? 'shared_plant' : 'shared_zombie'); }, 1000);
-      }
+  setTimeout(() => { addToBag(Math.random() > 0.5 ? 'shared_plant' : 'shared_zombie'); }, 1000);
+}
     } else {
       if (Math.random() < 0.05) {
-        setTimeout(() => { openBox(Math.random() > 0.5 ? 'local_plant' : 'local_zombie'); }, 1000);
-      }
+  setTimeout(() => { addToBag(Math.random() > 0.5 ? 'local_plant' : 'local_zombie'); }, 1000);
+}
     }
   }
   
