@@ -247,7 +247,7 @@ window.pkAnswerHandler = function(isCorrect) {
     
     // 1% 概率出音乐宝箱
     if (Math.random() < 0.01) {
-      setTimeout(() => { openBox('music'); }, 800);
+     setTimeout(() => { addToBag('music'); }, 800);
     }
     
   } else {
