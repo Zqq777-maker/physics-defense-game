@@ -1,5 +1,4 @@
-// 物理习题题库 —— 字段已对齐主程序
-// q:题干 options:选项 answer:正确选项索引数组(0起) multi:是否多选 image:图片路径或null
+// 物理习题题库 —— 已适配图片直接命名为 q1.png ~ q27.png 的格式
 const QUESTIONS_L1 = [
   {
     "q": "如图所示为A、B两人在同一直线上运动的位移图像，下列关于图像的分析正确的是",
@@ -9,13 +8,9 @@ const QUESTIONS_L1 = [
       "0~5s内，A走的路程比B走的路程多",
       "0~5s内，A的位移比B的位移大"
     ],
-    "answer": [
-      1,
-      3
-    ],
+    "answer": [1, 3],
     "multi": true,
-    "explain": "",
-    "image": "images/img_01.png"
+    "image": "q1.png"
   },
   {
     "q": "一物体从静止开始在平直的路面上做匀加速直线运动,将此时刻记为t=0时刻,其速度的二次方v²随位移x变化的关系可用如图所示的v²-x图像表示。关于该物体的运动,下列说法正确的是",
@@ -25,12 +20,9 @@ const QUESTIONS_L1 = [
       "物体在0~12 m内的平均速度为6 m/s",
       "物体在t=6 s时的速度大小为10 m/s"
     ],
-    "answer": [
-      1
-    ],
+    "answer": [1],
     "multi": false,
-    "explain": "",
-    "image": "images/img_02.png"
+    "image": "q2.png"
   },
   {
     "q": "一辆汽车以15 m/s的初速度在平直公路上匀加速运动,加速度大小为0.6 m/s²,加速10 s后,再以大小为3 m/s²的加速度匀减速刹车至停止,则汽车在整个过程中的位移大小为",
@@ -40,11 +32,8 @@ const QUESTIONS_L1 = [
       "255 m",
       "306 m"
     ],
-    "answer": [
-      0
-    ],
+    "answer": [0],
     "multi": false,
-    "explain": "",
     "image": null
   },
   {
@@ -55,13 +44,9 @@ const QUESTIONS_L1 = [
       "运动员受到的支持力,是运动员的脚发生形变而产生的",
       "运动员在A点时受到的支持力为零"
     ],
-    "answer": [
-      1,
-      3
-    ],
+    "answer": [1, 3],
     "multi": true,
-    "explain": "",
-    "image": "images/img_03.png"
+    "image": "q3.png"
   },
   {
     "q": "一根轻弹簧两端受大小为10.0N，方向沿轻弹簧轴线的一对拉力时，轻弹簧伸长1.00 cm，现将轻弹簧上端固定，下端挂一重物，轻弹簧伸长1.35 cm,g取10 N/kg,则",
@@ -71,12 +56,8 @@ const QUESTIONS_L1 = [
       "轻弹簧下端所挂重物的质量为1.35kg",
       "轻弹簧下端所挂重物的质量为2.70kg"
     ],
-    "answer": [
-      1,
-      2
-    ],
+    "answer": [1, 2],
     "multi": true,
-    "explain": "",
     "image": null
   },
   {
@@ -87,11 +68,8 @@ const QUESTIONS_L1 = [
       "在运动场上加速奔跑的运动员受到的摩擦力是滑动摩擦力",
       "沿平直公路匀速行驶的汽车所有车轮受到摩擦均与行驶方向相反"
     ],
-    "answer": [
-      1
-    ],
+    "answer": [1],
     "multi": false,
-    "explain": "",
     "image": null
   },
   {
@@ -102,11 +80,8 @@ const QUESTIONS_L1 = [
       "人推沙发的力大于沙发对人的力",
       "若改用斜向下推，更容易推动"
     ],
-    "answer": [
-      0
-    ],
+    "answer": [0],
     "multi": false,
-    "explain": "",
     "image": null
   },
   {
@@ -117,11 +92,8 @@ const QUESTIONS_L1 = [
       "只有弹力，没有摩擦力",
       "弹力和摩擦力同时存在"
     ],
-    "answer": [
-      3
-    ],
+    "answer": [3],
     "multi": false,
-    "explain": "",
     "image": null
   },
   {
@@ -132,11 +104,8 @@ const QUESTIONS_L1 = [
       "滚轮与纸间的动摩擦因数小于纸张之间的动摩擦因数",
       "若因潮湿导致纸张之间的动摩擦因数不相同，则有可能多张纸一起被送入打印机中"
     ],
-    "answer": [
-      3
-    ],
+    "answer": [3],
     "multi": false,
-    "explain": "",
     "image": null
   },
   {
@@ -147,27 +116,21 @@ const QUESTIONS_L1 = [
       "篮球在手中时所受重力方向垂直手掌方向向下",
       "篮球的重心一定位于篮球上最重的一点"
     ],
-    "answer": [
-      1
-    ],
+    "answer": [1],
     "multi": false,
-    "explain": "",
-    "image": "images/img_04.png"
+    "image": "q4.png"
   },
   {
-    "q": "如图甲所示，一轻质弹簧下端固定在水平面上，上端放一个质量为 m 的物块A。物块A静止后弹簧的长度为L1；若在物块A上端再放一个质量为2m的物块B，静止后弹簧的长度为 L²，弹簧始终处于弹性限度范围内，则弹簧的劲度系数及原长分别为",
+    "q": "如图甲所示，一轻质弹簧下端固定在水平面上，上端放一个质量为 m 的物块A。物块A静止后弹簧的长度为L1；若在物块A上端再放一个质量为2m的物块B，静止后弹簧的长度为 L2，弹簧始终处于弹性限度范围内，则弹簧的劲度系数及原长分别为",
     "options": [
-      "K=2mg/L1-L²,L=3L1-L²",
-      "K=2mg/L1-L²,L=3L1-L2/2",
-      "K=mg/L1-L²,L=3L1-L²",
-      "K=mg/L1-L²,L=3L1-L2/2"
+      "K=2mg/L1-L2,L=3L1-L2",
+      "K=2mg/L1-L2,L=3L1-L2/2",
+      "K=mg/L1-L2,L=3L1-L2",
+      "K=mg/L1-L2,L=3L1-L2/2"
     ],
-    "answer": [
-      1
-    ],
+    "answer": [1],
     "multi": false,
-    "explain": "",
-    "image": "images/img_05.png"
+    "image": "q5.png"
   },
   {
     "q": "如图所示，将乒乓球用双面胶粘贴于烧杯底部，往烧杯中注入一些水，用细木棍轻微拨动乒乓球，乒乓球将会从杯底上升到水面。在乒乓球从杯底上升到水面的过程中，关于由烧杯、水和乒乓球组成的系统重心位置的变化，下列选项正确的是",
@@ -177,11 +140,8 @@ const QUESTIONS_L1 = [
       "不变",
       "无法确定"
     ],
-    "answer": [
-      1
-    ],
+    "answer": [1],
     "multi": false,
-    "explain": "",
     "image": null
   },
   {
@@ -192,12 +152,9 @@ const QUESTIONS_L1 = [
       "200N/m",
       "300N/m"
     ],
-    "answer": [
-      1
-    ],
+    "answer": [1],
     "multi": false,
-    "explain": "",
-    "image": "images/img_06.png"
+    "image": "q6.png"
   },
   {
     "q": "关于摩擦力与动摩擦因数，下列说法正确的是",
@@ -207,11 +164,8 @@ const QUESTIONS_L1 = [
       "两物体间的滑动摩擦力总是大于它们之间的静摩擦力",
       "相互接触的物体相对静止时，物体间可能存在静摩擦力"
     ],
-    "answer": [
-      3
-    ],
+    "answer": [3],
     "multi": false,
-    "explain": "",
     "image": null
   },
   {
@@ -222,12 +176,9 @@ const QUESTIONS_L1 = [
       "磁铁对剪纸的压力是由于剪纸发生形变引起的",
       "磁铁对剪纸的摩擦力与黑板对剪纸的摩擦力大小不相等"
     ],
-    "answer": [
-      3
-    ],
+    "answer": [3],
     "multi": false,
-    "explain": "",
-    "image": "images/img_07.png"
+    "image": "q7.png"
   },
   {
     "q": "下列关于摩擦力的说法中正确的是",
@@ -237,11 +188,8 @@ const QUESTIONS_L1 = [
       "关于μ=Ff/FN,动摩擦因数与滑动摩擦力成正比,Ff越大，μ越大",
       "两物体间有摩擦力就一定有弹力，且两者方向互相垂直"
     ],
-    "answer": [
-      3
-    ],
+    "answer": [3],
     "multi": false,
-    "explain": "",
     "image": null
   },
   {
@@ -252,29 +200,21 @@ const QUESTIONS_L1 = [
       "在加速过程中，货箱受到摩擦力的方向沿着斜面向上",
       "共速后，货箱随着传送带一起匀速运动，因而不受摩擦力作用"
     ],
-    "answer": [
-      0,
-      2
-    ],
+    "answer": [0, 2],
     "multi": true,
-    "explain": "",
-    "image": "images/img_08.png"
+    "image": "q8.png"
   },
   {
     "q": "如图所示，A为长木板，上表面粗糙，在水平面上以速度v1向右匀速运动，物块B在木板A的上面以速度v2向右匀速运动，下列判断正确的是",
     "options": [
-      "若 v1=v²，A,B之间无滑动摩擦力",
-      "若 v1&gt;v²，B受到A所施加的向右的滑动摩擦力",
-      "若 v1&lt;v²，B受到A所施加的向右的滑动摩擦力",
-      "若 v1&gt;v²，A受到B所施加的向右的滑动摩擦力"
+      "若 v1=v2，A,B之间无滑动摩擦力",
+      "若 v1>v2，B受到A所施加的向右的滑动摩擦力",
+      "若 v1<v2，B受到A所施加的向右的滑动摩擦力",
+      "若 v1>v2，A受到B所施加的向右的滑动摩擦力"
     ],
-    "answer": [
-      0,
-      1
-    ],
+    "answer": [0, 1],
     "multi": true,
-    "explain": "",
-    "image": "images/img_09.png"
+    "image": "q9.png"
   },
   {
     "q": "一块质量为1kg、长为0.4m的匀质长木板放在固定的水平桌面上，已知木板与桌面间的动摩擦因数为μ=0.2。重力加速度g取10m/s^2，当用水平力F=3N推木板，使它经过如图所示的位置时，桌面对木板的摩擦力大小为",
@@ -284,12 +224,9 @@ const QUESTIONS_L1 = [
       "1.5N",
       "0.5N"
     ],
-    "answer": [
-      1
-    ],
+    "answer": [1],
     "multi": false,
-    "explain": "",
-    "image": "images/img_10.png"
+    "image": "q10.png"
   },
   {
     "q": "如图所示，质量为m的木块在质量为M的长木板上滑行，木板与地面间的动摩擦因数为μ1，木块与木板间的动摩擦因数为μ2，重力加速度为g，木板一直静止，那么木块与木板间、木板与地面间的摩擦力大小分别为",
@@ -299,12 +236,9 @@ const QUESTIONS_L1 = [
       "μ2mg μ1(M+m)g",
       "μ2mg μ1Mg+μ2mg"
     ],
-    "answer": [
-      1
-    ],
+    "answer": [1],
     "multi": false,
-    "explain": "",
-    "image": "images/img_11.png"
+    "image": "q11.png"
   }
 ];
 
@@ -317,12 +251,9 @@ const QUESTIONS_L2 = [
       "酱油瓶受到的摩擦力大小一定与手对酱油瓶的弹力成正比",
       "酱油瓶受到的重力和酱油瓶对手的摩擦力是一对相互作用力"
     ],
-    "answer": [
-      1
-    ],
+    "answer": [1],
     "multi": false,
-    "explain": "",
-    "image": "images/img_12.png"
+    "image": "q12.png"
   },
   {
     "q": "如图所示，物体A,B叠放在粗糙水平面上，用绳子水平拉物体B，力的大小为F，该力使A随B一起向右做匀速直线运动，则与物体B发生作用与反作用的力有",
@@ -332,12 +263,9 @@ const QUESTIONS_L2 = [
       "五对",
       "六对"
     ],
-    "answer": [
-      2
-    ],
+    "answer": [2],
     "multi": false,
-    "explain": "",
-    "image": "images/img_13.png"
+    "image": "q13.png"
   },
   {
     "q": "一根轻质弹簧竖直悬挂在天花板上，下端悬挂一小球，弹簧和小球的受力如图所示，下列说法正确的是",
@@ -347,13 +275,9 @@ const QUESTIONS_L2 = [
       "F4的反作用力是F1",
       "F3的施力者是小球"
     ],
-    "answer": [
-      0,
-      3
-    ],
+    "answer": [0, 3],
     "multi": true,
-    "explain": "",
-    "image": "images/img_14.png"
+    "image": "q14.png"
   },
   {
     "q": "如图所示，一木箱放在水平面上，木箱质量为M，人的质量为m，人站在木箱里用力F向上推木箱，则下列说法正确的是",
@@ -363,28 +287,21 @@ const QUESTIONS_L2 = [
       "地面对木箱的支持力大小为Mg+mg-F",
       "木箱对地面的压力大小为Mg+mg+F"
     ],
-    "answer": [
-      0
-    ],
+    "answer": [0],
     "multi": false,
-    "explain": "",
-    "image": "images/img_15.png"
+    "image": "q15.png"
   },
   {
-    "q": "在某次滑雪训练中，滑雪者沿倾角为α的山坡A滑下，然后又滑上倾角为β的山坡B，α&gt;β，如图所示。下列说法正确的是",
+    "q": "在某次滑雪训练中，滑雪者沿倾角为α的山坡A滑下，然后又滑上倾角为β的山坡B，α>β，如图所示。下列说法正确的是",
     "options": [
       "在A,B两山坡上运动时，滑雪者都受到重力、支持力和摩擦力三个力的作用",
       "在A,B两山坡上运动时，滑雪者都受到重力、支持力、下滑力和摩擦力四个力的作用",
       "滑雪者在山坡A上运动时所受的摩擦力是动力，在山坡B上运动时所受的摩擦力是阻力",
       "在A,B两山坡上运动时，滑雪者所受的摩擦力均是阻力"
     ],
-    "answer": [
-      0,
-      3
-    ],
+    "answer": [0, 3],
     "multi": true,
-    "explain": "",
-    "image": "images/img_16.png"
+    "image": "q16.png"
   },
   {
     "q": "如图所示，A,B两长方体木块放在水平面上，它们的高度相等，长木板C放在它们上面。用水平力F拉木块A，使A,B,C一起沿水平面向右匀速运动，则",
@@ -394,13 +311,9 @@ const QUESTIONS_L2 = [
       "B对C的摩擦力向右",
       "C对B的摩擦力向右"
     ],
-    "answer": [
-      0,
-      3
-    ],
+    "answer": [0, 3],
     "multi": true,
-    "explain": "",
-    "image": "images/img_17.png"
+    "image": "q17.png"
   },
   {
     "q": "力的合成和分解在生产和生活中有着重要的作用，下列说法中正确的是",
@@ -410,13 +323,8 @@ const QUESTIONS_L2 = [
       "运动员做引体向上（缓慢上升）动作时，双臂张开很大的角度时要比双臂竖直平行时觉得手臂用力大，是因为张开时手臂产生的合力增大的缘故",
       "帆船能逆风行驶，说明风力一定能分解出沿船前进方向的分力"
     ],
-    "answer": [
-      0,
-      1,
-      3
-    ],
+    "answer": [0, 1, 3],
     "multi": true,
-    "explain": "",
     "image": null
   },
   {
@@ -427,11 +335,8 @@ const QUESTIONS_L2 = [
       "25°",
       "35°"
     ],
-    "answer": [
-      3
-    ],
+    "answer": [3],
     "multi": false,
-    "explain": "",
     "image": null
   },
   {
@@ -442,13 +347,9 @@ const QUESTIONS_L2 = [
       "绳对手指施加作用力的方向沿绳由A指向B",
       "所挂重物质量越大，绳和杆对手的作用力也越大"
     ],
-    "answer": [
-      0,
-      3
-    ],
+    "answer": [0, 3],
     "multi": true,
-    "explain": "",
-    "image": "images/img_18.png"
+    "image": "q18.png"
   },
   {
     "q": "如图耕地过程中，耕索与水平方向成θ角，牛通过耕索拉犁的力为F，犁对耕索的拉力为T，忽略耕索质量，则",
@@ -458,12 +359,9 @@ const QUESTIONS_L2 = [
       "犁匀速前进时，F和T的合力为零",
       "犁加速前进时，F和T大小相等"
     ],
-    "answer": [
-      3
-    ],
+    "answer": [3],
     "multi": false,
-    "explain": "",
-    "image": "images/img_19.png"
+    "image": "q19.png"
   },
   {
     "q": "将完全相同的原木按图（a）所示堆放。设原木半径为R，重力为G。若不考虑原木之间的摩擦，最上面三根原木截面图可视作图（b）一样的“品”字形。最上面这根原木对其下面两根原木的作用力大小是",
@@ -473,12 +371,9 @@ const QUESTIONS_L2 = [
       "根号3除以2G",
       "1G"
     ],
-    "answer": [
-      1
-    ],
+    "answer": [1],
     "multi": false,
-    "explain": "",
-    "image": "images/img_20.png"
+    "image": "q20.png"
   },
   {
     "q": "如图甲所示，佩戴口罩能有效地阻隔空气中病毒的传播。若将口罩带套在耳朵上的情景简化为如图乙所示，AB,CD分别为口罩带的一部分，其中AB段水平，CD段与水平方向夹角为60°，且AB,CD在同一竖直平面内。若弹性口罩带的弹力大小遵循胡克定律，且劲度系数为k=200*√3N/m，已知佩戴在单侧耳朵上的口罩带的伸长量为x=5cm，不计口罩带的重力及与皮肤间的摩擦。则口罩带对单侧耳朵的作用力大小为",
@@ -488,12 +383,9 @@ const QUESTIONS_L2 = [
       "60N",
       "60√3N"
     ],
-    "answer": [
-      0
-    ],
+    "answer": [0],
     "multi": false,
-    "explain": "",
-    "image": "images/img_21.png"
+    "image": "q21.png"
   },
   {
     "q": "明朝谢肇的《五杂组》中记载：“明姑苏虎丘寺庙倾侧，议欲正之，非万不得不可。一游僧见之，曰：无烦也，我能正之。”游僧每天将木楔从塔身倾斜一侧的砖缝间敲进去，经月余扶正了塔身。假设所用的木楔为等腰三角形，木楔的顶角为θ，现在木楔背上加一力F，方向如图所示，则木楔两侧产生推力N的大小为",
@@ -503,12 +395,9 @@ const QUESTIONS_L2 = [
       "F/2cos（θ/2）",
       "F/2sin（θ/2）"
     ],
-    "answer": [
-      3
-    ],
+    "answer": [3],
     "multi": false,
-    "explain": "",
-    "image": "images/img_22.png"
+    "image": "q22.png"
   },
   {
     "q": "如图所示，粗糙的木块A、B叠在一起，静止于倾角为θ的固定斜面上。木块B的受力个数为",
@@ -518,12 +407,9 @@ const QUESTIONS_L2 = [
       "5",
       "6"
     ],
-    "answer": [
-      2
-    ],
+    "answer": [2],
     "multi": false,
-    "explain": "",
-    "image": "images/img_23.png"
+    "image": "q23.png"
   },
   {
     "q": "如图所示，质量均为m的两木块a与b叠放在水平地面上，a、b分别受到方向相反的水平拉力的作用，两力大小均为F，两木块保持静止状态，则",
@@ -533,13 +419,9 @@ const QUESTIONS_L2 = [
       "b与地面之间一定不存在静摩擦力",
       "地面对b的支持力一定大于2mg"
     ],
-    "answer": [
-      0,
-      2
-    ],
+    "answer": [0, 2],
     "multi": true,
-    "explain": "",
-    "image": "images/img_24.png"
+    "image": "q24.png"
   },
   {
     "q": "如图所示，一个“Y”字形弹弓顶部两端系着两根相同的橡皮条，橡皮条的原长均为L，橡皮条的末端连接裹片(长度不计)，将弹丸放在裹片中，每根橡皮条均被拉伸至长度为2L，释放裹片，可将弹丸弹出，若此时两橡皮条间的夹角为60°，释放瞬间弹丸受到的弹力大小为F，已知橡皮条的弹力满足胡克定律且橡皮条始终处于弹性限度内，则橡皮条的劲度系数为",
@@ -549,12 +431,9 @@ const QUESTIONS_L2 = [
       "√3F/2L",
       "√3F/3L"
     ],
-    "answer": [
-      3
-    ],
+    "answer": [3],
     "multi": false,
-    "explain": "",
-    "image": "images/img_25.png"
+    "image": "q25.png"
   },
   {
     "q": "如图所示，某钢制工件上开有一个楔形凹槽，凹槽的截面是一个直角三角形ABC,∠CAB= 30°,∠ABC= 90°,∠ACB =60°。在凹槽中放有一个光滑的金属球，当金属球静止时金属球对凹槽的AB边的压力为F，对BC边的压力为F2/F1的值为",
@@ -564,12 +443,9 @@ const QUESTIONS_L2 = [
       "√3/3",
       "√3/5"
     ],
-    "answer": [
-      2
-    ],
+    "answer": [2],
     "multi": false,
-    "explain": "",
-    "image": "images/img_26.png"
+    "image": "q26.png"
   },
   {
     "q": "如图所示，将一个已知力F分解为F1和F2,已知F=10N,F1与F的夹角为37°(已知sin 37°=0.6,cos37°=0.8),则F2的大小",
@@ -579,12 +455,8 @@ const QUESTIONS_L2 = [
       "不可能等于10N",
       "最小值为8N"
     ],
-    "answer": [
-      0,
-      2
-    ],
+    "answer": [0, 2],
     "multi": true,
-    "explain": "",
-    "image": "images/img_27.png"
+    "image": "q27.png"
   }
 ];
