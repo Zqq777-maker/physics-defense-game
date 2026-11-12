@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PvZ 物理防御战 · 完全版</title>
+<script src="https://cdn.jsdelivr.net.cn/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<style>
+  :root{
+    --grass-a:#8bc34a; --grass-b:#7cb342;
+    --wood:#5d4037; --wood-light:#795548; --wood-dark:#3e2723;
+    --gold:#ffd54f; --gold-deep:#ffb300;
+    --panel:#fbf6ea; --ink:#3a2c1a;
+    --shadow:0 6px 16px rgba(0,0,0,.25);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; user-select: none; }
+  body { margin: 0; min-height: 100vh; background: radial-gradient(1200px 600px at 50% -10%, #aed581 0%, #7cb342 40%, #558b2f 100%); display: flex; justify-content: center; color: var(--ink); }
+
+  #loginScreen, #levelSelectScreen, #pkMenuScreen { position: fixed; inset: 0; background: rgba(20,40,12,.92); backdrop-filter: blur(4px); z-index: 1000; display: none; flex-direction: column; justify-content: center; align-items: center; }
+  .login-box { background: linear-gradient(160deg,#8d6e4e,#5d4037); border: 6px solid var(--gold); border-radius: 24px; padding: 34px 30px; text-align: center; width: 90%; max-width: 360px; box-shadow: 0 18px 40px rgba(0,0,0,.5), inset 0 2px 0 rgba(255,255,255,.15); }
+  .login-box h2 { margin: 0 0 22px; color: var(--gold); text-shadow: 2px 2px 0 var(--wood-dark); font-size: 26px; letter-spacing: 1px; }
+  .login-box input { width: 100%; padding: 13px 14px; margin-bottom: 16px; border-radius: 12px; border: 2px solid #3e2723; font-size: 16px; background: #fff8ec; outline: none; transition: border-color .2s, box-shadow .2s; }
+  .login-box input:focus { border-color: var(--gold-deep); box-shadow: 0 0 0 3px rgba(255,193,7,.25); }
+  .login-btn { width: 100%; padding: 14px; border: none; border-radius: 12px; background: linear-gradient(180deg,#66bb6a,#43a047); color: #fff; font-size: 18px; font-weight: 800; cursor: pointer; box-shadow: 0 5px 0 #2e7d32; margin-bottom: 12px; transition: transform .08s, box-shadow .08s; }
+  .login-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #2e7d32; }
+  .level-btn { background: linear-gradient(180deg,#42a5f5,#1e88e5); box-shadow: 0 5px 0 #1565c0; }
+  .pk-btn { background: linear-gradient(180deg,#ec407a,#d81b60); box-shadow: 0 5px 0 #ad1457; }
+
+  #gameScreen { display: none; width: 100%; max-width: 920px; padding: 12px; flex-direction: column; gap: 12px; min-height: 100vh; }
+  #gameScreen.active { display: flex; }
+  .top-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; background: linear-gradient(180deg,#6d4c2f,#4e3420); padding: 10px 16px; border-radius: 14px; border: 2px solid var(--gold); color: #fff; font-size: 14px; box-shadow: var(--shadow); }
+  .top-bar span { color: var(--gold); font-weight: bold; }
+  .quiz-btn { background: linear-gradient(180deg,#ffa726,#fb8c00); color: #fff; border: none; padding: 10px 14px; border-radius: 10px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #e65100; font-size: 14px; transition: transform .08s, box-shadow .08s; }
+  .quiz-btn:active { transform: translateY(3px); box-shadow: none; }
+
+  .pk-info-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: linear-gradient(180deg,#2b2b2b,#111); padding: 12px 16px; border-radius: 14px; color: #fff; font-weight: bold; border: 2px solid #ec407a; box-shadow: var(--shadow); }
+  .pk-side-info { text-align: center; flex: 1; }
+
+  .card-area { display: flex; gap: 10px; background: linear-gradient(180deg,#8d6e4e,#6d4c2f); padding: 10px; border-radius: 14px; min-height: 84px; overflow-x: auto; align-items: center; border: 2px solid #3e2723; box-shadow: var(--shadow); }
+  .empty-cards { color: #f0e6d2; font-size: 14px; margin-left: 12px; opacity: .85; }
+  .card { width: 58px; height: 74px; background: linear-gradient(160deg,#ffffff,#f1ece1); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border: 2px solid transparent; flex-shrink: 0; overflow: hidden; box-shadow: 0 3px 8px rgba(0,0,0,.25); transition: transform .12s, box-shadow .12s, border-color .12s; }
+  .card:hover { transform: translateY(-3px); }
+  .card.selected { border-color: var(--gold); box-shadow: 0 0 16px var(--gold), 0 4px 10px rgba(0,0,0,.3); transform: translateY(-4px) scale(1.06); }
+  .card .emoji { font-size: 30px; line-height: 1; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+  .card img { width: 36px; height: 36px; image-rendering: pixelated; border-radius: 6px; }
+  .card .name { font-size: 10px; font-weight: bold; color: #4e3420; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; text-align: center; background: rgba(0,0,0,.05); padding: 2px 0; }
+
+  .game-board { display: flex; flex: 1; border: 5px solid #33691e; border-radius: 16px; overflow: hidden; background: #8bc34a; position: relative; min-height: 420px; box-shadow: var(--shadow), inset 0 0 30px rgba(0,0,0,.15); }
+  .mower-track { width: 44px; background: repeating-linear-gradient(180deg,#6d4c2f,#6d4c2f 10px,#5d4037 10px,#5d4037 20px); display: flex; flex-direction: column; border-right: 3px solid #3e2723; }
+  .mower-slot { height: 20%; display: flex; align-items: center; justify-content: center; font-size: 26px; transition: transform .3s, opacity .3s; filter: drop-shadow(0 2px 2px rgba(0,0,0,.4)); }
+  .mower-slot.empty { opacity: .15; transform: translateX(-6px); }
+  .lawn { flex: 1; position: relative; cursor: crosshair; overflow: hidden;
+    background:
+      repeating-linear-gradient(to right, rgba(0,0,0,.06) 0 1px, transparent 1px calc(100%/9)),
+      repeating-linear-gradient(to bottom, rgba(0,0,0,.06) 0 1px, transparent 1px 20%),
+      linear-gradient(180deg,#9ccc65,#7cb342);
+  }
+  .plant, .zombie, .bullet, .explosion { position: absolute; width: calc(100% / 9); height: 20%; display: flex; align-items: center; justify-content: center; font-size: 30px; }
+  .plant { font-size: 32px; filter: drop-shadow(0 3px 2px rgba(0,0,0,.35)); }
+  .zombie { font-size: 34px; z-index: 10; filter: drop-shadow(0 3px 3px rgba(0,0,0,.4)); }
+  .zombie.slowed { filter: drop-shadow(0 0 6px #4fc3f7) hue-rotate(20deg); }
+  .zombie.stunned { filter: grayscale(.6) brightness(1.2); transform: rotate(-8deg); }
+  .bullet { font-size: 18px; z-index: 5; filter: drop-shadow(0 0 4px rgba(255,255,255,.6)); }
+  .custom-img { width: 42px; height: 42px; image-rendering: pixelated; object-fit: cover; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,.3); }
+  .hp-bar { position: absolute; top: 4px; left: 10%; width: 80%; height: 7px; background: rgba(0,0,0,.45); border-radius: 4px; overflow: hidden; opacity: 0; box-shadow: inset 0 1px 2px rgba(0,0,0,.5); }
+  .zombie .hp-bar { opacity: 1; }
+  .hp-fill { height: 100%; background: linear-gradient(90deg,#e53935,#ff7043); transition: width .12s linear; }
+
+  .modal { position: fixed; inset: 0; background: rgba(10,20,8,.78); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; z-index: 200; padding: 16px; }
+  .modal.active { display: flex; }
+  .quiz-card { width: 100%; max-width: 460px; background: var(--panel); border-radius: 20px; padding: 22px; border: 5px solid var(--wood-light); max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,.5); animation: cardIn .25s ease-out; }
+  @keyframes cardIn { from { transform: translateY(20px) scale(.96); opacity: 0 } to { transform: none; opacity: 1 } }
+  .quiz-image-wrap { text-align: center; margin-bottom: 12px; }
+  .quiz-image-wrap img { max-width: 100%; max-height: 180px; border-radius: 12px; background: #fff; display: none; box-shadow: var(--shadow); }
+  .quiz-card h3 { margin: 0 0 16px; font-size: 17px; line-height: 1.5; color: var(--ink); }
+  .option { display: block; width: 100%; margin-top: 10px; padding: 13px 14px; font-size: 14px; text-align: left; background: #efe7d6; border: 2px solid #d7c7a8; border-radius: 10px; cursor: pointer; transition: background .15s, border-color .15s, transform .08s; color: var(--ink); }
+  .option:hover { background: #e3d6ba; }
+  .option:active { transform: scale(.99); }
+  .option.selected { background: #bbdefb; border-color: #42a5f5; }
+  .option.right { background: #a5d6a7; border-color: #4caf50; }
+  .option.wrong { background: #ef9a9a; border-color: #e53935; }
+  .quiz-submit { width: 100%; margin-top: 16px; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 12px; background: linear-gradient(180deg,#66bb6a,#43a047); color: #fff; cursor: pointer; box-shadow: 0 4px 0 #2e7d32; transition: transform .08s, box-shadow .08s; }
+  .quiz-submit:active { transform: translateY(4px); box-shadow: 0 0 0 #2e7d32; }
+
+  .blindbox-modal { position: fixed; inset: 0; background: radial-gradient(circle at 50% 40%, rgba(40,20,60,.92), rgba(10,5,20,.96)); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 300; }
+  .blindbox-modal.active { display: flex; }
+  .box { font-size: 120px; cursor: pointer; animation: shake .5s infinite; filter: drop-shadow(0 10px 20px rgba(0,0,0,.5)); }
+  .reward-plant { font-size: 110px; animation: pop .5s ease-out forwards; filter: drop-shadow(0 10px 20px rgba(0,0,0,.5)); }
+  @keyframes pop { 0%{transform:scale(0) rotate(-20deg)} 70%{transform:scale(1.25) rotate(8deg)} 100%{transform:scale(1)} }
+  .reward-text { color: var(--gold); font-size: 24px; font-weight: bold; margin-top: 20px; text-align: center; text-shadow: 0 2px 6px rgba(0,0,0,.5); }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-12px) rotate(-6deg)} 75%{transform:translateX(12px) rotate(6deg)} }
+
+  .plant-info-card { width: 90%; max-width: 340px; background: var(--panel); border-radius: 20px; padding: 30px 22px; text-align: center; border: 5px solid var(--wood-light); box-shadow: 0 20px 50px rgba(0,0,0,.5); }
+
+  .sidebar { width: 100%; max-width: 300px; margin: 0 auto; background: linear-gradient(180deg,rgba(40,55,25,.92),rgba(25,35,15,.92)); border-radius: 14px; padding: 16px; border: 2px solid #558b2f; color: #fff; box-shadow: var(--shadow); }
+  .sidebar h3 { margin: 0 0 12px; color: var(--gold); text-align: center; font-size: 16px; border-bottom: 1px solid #558b2f; padding-bottom: 8px; }
+  #leaderboard { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+  #leaderboard li { display: flex; justify-content: space-between; padding: 9px 11px; background: rgba(255,255,255,.08); border-radius: 8px; margin-bottom: 6px; }
+
+  #resultModal .quiz-card { max-width: 500px; }
+  .wrong-q-item { background: #fff; border: 1px solid #ccc; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 14px; }
+  .wrong-q-item img { max-width: 100%; max-height: 120px; margin: 8px 0; border-radius: 4px; }
+  .wrong-q-title { font-weight: bold; margin-bottom: 6px; line-height: 1.4; }
+
+  #teacherScreen { display: none; width: 100%; max-width: 1040px; padding: 22px; background: linear-gradient(180deg,#f5f7fa,#e9eef5); min-height: 100vh; flex-direction: column; }
+  #teacherScreen.active { display: flex; }
+  .teacher-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cfd8e3; padding-bottom: 12px; margin-bottom: 18px; }
+  .teacher-header h1 { margin: 0; font-size: 22px; color: #1565c0; }
+  .teacher-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab-btn { padding: 10px 18px; border: none; background: #e3e9f2; cursor: pointer; border-radius: 10px 10px 0 0; font-weight: bold; font-size: 15px; color: #455a6e; transition: background .15s, color .15s; }
+  .tab-btn.active { background: linear-gradient(180deg,#42a5f5,#1e88e5); color: #fff; }
+  .teacher-table { width: 100%; border-collapse: collapse; margin-top: 10px; display: none; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+  .teacher-table.active { display: table; }
+  .teacher-table th, .teacher-table td { border: 1px solid #e3e9f2; padding: 11px; text-align: left; font-size: 14px; }
+  .teacher-table th { background: #eef3f9; font-weight: bold; color: #37474f; }
+  .ppt-list { margin-top: 15px; }
+  .ppt-item { display: flex; justify-content: space-between; align-items: center; padding: 14px; border: 1px solid #e3e9f2; border-radius: 10px; margin-bottom: 10px; background: #fafcff; }
+  .ppt-item-info { flex: 1; }
+  .ppt-item-title { font-weight: bold; font-size: 14px; margin-bottom: 5px; color: #263238; }
+  .ppt-item-stats { font-size: 12px; color: #e53935; }
+  .ppt-checkbox { width: 22px; height: 22px; cursor: pointer; margin-left: 15px; }
+  .export-btn { margin-top: 20px; padding: 15px 30px; background: linear-gradient(180deg,#ec407a,#d81b60); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 0 #ad1457; transition: transform .08s, box-shadow .08s; }
+  .export-btn:active { transform: translateY(4px); box-shadow: none; }
+
+  #toast { position: fixed; top: 18px; left: 50%; transform: translateX(-50%) translateY(-12px); background: rgba(20,20,20,.92); color: #fff; padding: 11px 22px; border-radius: 30px; font-weight: bold; z-index: 9999; display: none; opacity: 0; transition: opacity .3s, transform .3s; box-shadow: 0 8px 20px rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.15); }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .custom-form label { display: block; text-align: left; margin-top: 12px; font-weight: bold; font-size: 14px; color: var(--ink); }
+  .custom-form input[type="text"], .custom-form input[type="number"] { width: 100%; padding: 9px; margin-top: 5px; border-radius: 8px; border: 1px solid #cbbda0; background: #fff; }
+  .custom-form input[type="range"] { width: 100%; accent-color: #43a047; }
+  .form-row { display: flex; gap: 12px; }
+  .form-row > div { flex: 1; }
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<div id="loginScreen">
+  <div class="login-box">
+    <h2>🌻 物理防御战 🌻</h2>
+    <input type="text" id="playerName" placeholder="请输入你的姓名">
+    <input type="text" id="playerClass" placeholder="请输入你的班级">
+    <button class="login-btn" onclick="login()">进入草坪</button>
+  </div>
+</div>
+
+<div id="levelSelectScreen">
+  <div class="login-box">
+    <h2>选择模式</h2>
+    <button class="login-btn level-btn" onclick="startGame(1)">单机：第一关</button>
+    <button class="login-btn level-btn" style="background:#ff9800; box-shadow:0 4px 0 #e65100;" onclick="startGame(2)">单机：第二关</button>
+    <button class="login-btn pk-btn" onclick="showPKMenu()">⚔️ 双人实时PK</button>
+  </div>
+</div>
+
+<div id="pkMenuScreen">
+  <div class="login-box">
+    <h2>⚔️ 双人对战大厅</h2>
+    <button class="login-btn pk-btn" onclick="createRoom()">创建房间</button>
+    <div style="margin:15px 0; color:#fff;">— 或者 —</div>
+    <input type="text" id="roomIdInput" placeholder="输入4位房间号" maxlength="4" style="text-align:center;">
+    <button class="login-btn pk-btn" onclick="joinRoom()">加入房间</button>
+    <button class="login-btn" style="background:#777; box-shadow:0 4px 0 #444;" onclick="document.getElementById('pkMenuScreen').style.display='none'; document.getElementById('levelSelectScreen').style.display='flex';">返回</button>
+  </div>
+</div>
+
+<div id="gameScreen">
+  <div id="singleTopBar" class="top-bar" style="display:flex;">
+    <div>👤 <span id="uiName"></span></div>
+    <div>⭐ 积分: <span id="uiScore">0</span></div>
+    <div>🧟 进度: <span id="zombieProgress">0/20</span></div>
+    <button class="quiz-btn" style="background:#8bc34a; box-shadow:0 3px 0 #558b2f;" onclick="openBag()">🎒 背包</button>
+    <button id="musicBtn" class="quiz-btn" style="background:#2196f3;" onclick="toggleMusic()">🎵 音乐开</button>
+    <button id="musicSrcBtn" class="quiz-btn" style="background:#9c27b0; box-shadow:0 3px 0 #6a1b9a;" onclick="switchMusicSource()">🎶 音源:原声</button>
+    <button class="quiz-btn" onclick="openQuiz()">📝 答题获植物</button>
+    <button id="feedbackBtn" class="quiz-btn" style="background:#9c27b0; display:none;" onclick="openFeedback()">📝 写小纸条 (<span id="feedbackChances">0</span>)</button>
+  </div>
+
+  <div id="pkTopBar" class="pk-info-bar" style="display:none;">
+    <div class="pk-side-info" id="pkPlayer1Info">房主(植物) HP:100</div>
+    <button class="quiz-btn" style="background:#8bc34a; box-shadow:0 3px 0 #558b2f;" onclick="openBag()">🎒 背包</button>
+    <button class="quiz-btn" style="background:#ff9800; font-size:16px; padding:12px 24px;" onclick="openPKQuiz()">📝 答题开盲盒</button>
+    <div class="pk-side-info" id="pkPlayer2Info">客机(僵尸) 剩余:30</div>
+  </div>
+
+  <div class="card-area" id="cardArea">
+    <div class="empty-cards">卡槽为空，快去答题吧！</div>
+  </div>
+
+  <div class="game-board">
+    <div class="mower-track" id="mowerTrack">
+      <div class="mower-slot" id="mower-0">🚜</div>
+      <div class="mower-slot" id="mower-1">🚜</div>
+      <div class="mower-slot" id="mower-2">🚜</div>
+      <div class="mower-slot" id="mower-3">🚜</div>
+      <div class="mower-slot" id="mower-4">🚜</div>
+    </div>
+    <div class="lawn" id="lawn"></div>
+  </div>
+
+  <div class="sidebar" id="sideBar">
+    <h3>🏆 实时排行榜</h3>
+    <ul id="leaderboard"><li style="text-align:center; opacity:0.6;">加载中...</li></ul>
+  </div>
+</div>
+
+<div class="modal" id="quizModal">
+  <div class="quiz-card">
+    <div class="quiz-image-wrap"><img id="quizImage" src=""></div>
+    <h3 id="quizQuestion"></h3>
+    <div id="quizOptions"></div>
+    <button class="quiz-submit" id="quizSubmit" style="display:none;" onclick="submitAnswer()">提交答案</button>
+  </div>
+</div>
+
+<div class="blindbox-modal" id="blindboxModal">
+  <div id="blindboxDisplay" class="box" onclick="openBlindbox()">🎁</div>
+  <div id="rewardPlant" class="reward-plant" style="display:none;"></div>
+  <div id="rewardText" class="reward-text" style="display:none;"></div>
+</div>
+
+<div class="modal" id="plantInfoModal">
+  <div class="plant-info-card">
+    <div style="font-size: 70px; margin-bottom: 10px;" id="infoEmoji"></div>
+    <h2 id="infoName" style="margin: 0 0 10px; color: #4caf50;"></h2>
+    <div id="infoDesc" style="font-size: 16px; line-height: 1.6; color: #555; margin-bottom: 25px; padding: 10px; background: rgba(0,0,0,0.05); border-radius: 8px;"></div>
+    <button class="quiz-submit" style="background:#4caf50;" onclick="closePlantInfo()">我知道了，开始种植！</button>
+  </div>
+</div>
+
+<div class="modal" id="resultModal">
+  <div class="quiz-card">
+    <h2 id="resultTitle" style="text-align:center; color:#4caf50; margin-top:0;">游戏结束</h2>
+    <div id="resultScore" style="text-align:center; font-size:20px; font-weight:bold; margin-bottom:15px;">最终得分: 0</div>
+    <div id="rewardNotice" style="text-align:center; color:#e91e63; font-weight:bold; margin-bottom:15px;"></div>
+    <div id="wrongQuestionsArea" style="max-height: 40vh; overflow-y: auto;"></div>
+    <button class="quiz-submit" onclick="location.reload()">返回主页</button>
+  </div>
+</div>
+
+<div class="modal" id="feedbackModal">
+  <div class="quiz-card">
+    <h2 style="text-align:center; color:#9c27b0;">📝 给老师的小纸条</h2>
+    <textarea id="feedbackContent" style="width:100%; height:120px; padding:10px; border-radius:8px; border:2px solid #ccc; font-size:14px; resize:none;"></textarea>
+    <button class="quiz-submit" style="background:#9c27b0;" onclick="submitFeedback()">发送给老师</button>
+  </div>
+</div>
+
+<div class="modal" id="customBoxModal">
+  <div class="quiz-card custom-form" style="text-align:center;">
+    <h2 style="color:#e91e63; margin-top:0;" id="boxTitle">✨ 恭喜开出宝箱！ ✨</h2>
+    <p style="font-size:14px; color:#555;" id="boxDesc">上传你的照片，创造专属角色！</p>
+    
+    <input type="file" id="photoUpload" accept="image/*" style="display:none;" onchange="processImage(this)">
+    <input type="file" id="musicUpload" accept="audio/mp4,video/mp4" style="display:none;" onchange="processMusic(this)">
+    
+    <div id="photoBtnArea">
+      <button class="quiz-submit" style="background:#2196f3; margin-bottom:15px;" onclick="document.getElementById('photoUpload').click()">📸 选择照片</button>
+    </div>
+    <div id="musicBtnArea" style="display:none;">
+      <button class="quiz-submit" style="background:#9c27b0; margin-bottom:15px;" onclick="document.getElementById('musicUpload').click()">🎵 上传 MP4 音乐</button>
+    </div>
+
+    <div id="previewArea" style="display:none;">
+      <canvas id="qCanvas" width="64" height="64" style="border:4px solid #7b5b3f; border-radius:10px; margin-bottom:10px; background:#fff; width:128px; height:128px; image-rendering:pixelated; display:block; margin:0 auto;"></canvas>
+      
+      <label>角色名字（最多6个字）</label>
+      <input type="text" id="charName" maxlength="6" placeholder="例如：无敌小土豆">
+      <input type="hidden" id="charType" value="plant">
+      
+      <div id="plantForm" style="display:block;">
+        <label>植物攻速 (秒/次)</label>
+        <input type="range" id="plantSpeed" min="1.0" max="5.0" step="0.5" value="2.0" oninput="document.getElementById('plantSpeedVal').textContent=this.value+' 秒'">
+        <div style="text-align:right; font-size:12px;" id="plantSpeedVal">2.0 秒</div>
+      </div>
+      
+      <div id="zombieForm" style="display:none;">
+        <div class="form-row">
+          <div>
+            <label>僵尸移速 (格/秒)</label>
+            <input type="range" id="zombieSpeed" min="0.3" max="2.0" step="0.1" value="0.5" oninput="document.getElementById('zombieSpeedVal').textContent=this.value+' 格'">
+            <div style="text-align:right; font-size:12px;" id="zombieSpeedVal">0.5 格</div>
+          </div>
+          <div>
+            <label>僵尸血量</label>
+            <input type="range" id="zombieHp" min="100" max="500" step="50" value="200" oninput="document.getElementById('zombieHpVal').textContent=this.value+' 滴'">
+            <div style="text-align:right; font-size:12px;" id="zombieHpVal">200 滴</div>
+          </div>
+        </div>
+      </div>
+      
+      <button class="quiz-submit" style="background:#4caf50; margin-top:20px;" onclick="saveCustomChar()">保存并关闭</button>
+    </div>
+
+    <div id="musicPreviewArea" style="display:none;">
+      <p style="color:#4caf50; font-weight:bold;">✅ 音乐已加载，点击保存生效。</p>
+      <button class="quiz-submit" style="background:#4caf50; margin-top:20px;" onclick="saveMusic()">保存并关闭</button>
+    </div>
+
+    <button class="quiz-submit" style="background:#777; margin-top:10px; box-shadow:0 4px 0 #444;" onclick="cancelBox()">暂不使用，放回背包</button>
+
+  </div>
+</div>
+
+<div class="modal" id="bagModal">
+  <div class="quiz-card" style="text-align:center;">
+    <h2 style="color:#558b2f; margin-top:0;">🎒 我的背包</h2>
+    <p style="font-size:13px; color:#666; margin-bottom:15px;">在这里存放你获得的宝箱，点击即可打开。</p>
+    <div id="bagItemsList" style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; min-height:100px;"></div>
+    <button class="quiz-submit" style="background:#999; margin-top:15px;" onclick="document.getElementById('bagModal').classList.remove('active')">关闭背包</button>
+  </div>
+</div>
+
+<div id="teacherScreen">
+  <div class="teacher-header">
+    <h1>👨‍🏫 教师控制台</h1>
+    <button class="quiz-btn" style="background:#2196f3; box-shadow:none;" onclick="loadTeacherData()">刷新数据</button>
+  </div>
+  <div class="teacher-tabs">
+    <button class="tab-btn active" onclick="switchTab('wrong')">学生错题本</button>
+    <button class="tab-btn" onclick="switchTab('ppt')">重点讲解(PDF)</button>
+    <button class="tab-btn" onclick="switchTab('feedback')">学生意见箱</button>
+    <button class="tab-btn" onclick="switchTab('audit')" style="background:#ff9800; color:#fff;">💎 共享角色审核</button>
+  </div>
+  <table class="teacher-table active" id="table-wrong">
+    <thead><tr><th>时间</th><th>班级</th><th>姓名</th><th>错题题干</th><th>答题时长</th><th>修改次数</th></tr></thead>
+    <tbody id="teacherWrongBody"><tr><td colspan="6" style="text-align:center;">加载中...</td></tr></tbody>
+  </table>
+  <div id="table-ppt" class="teacher-table">
+    <h3>📌 错误率 > 50% 的高频错题 (已剔除无效数据)</h3>
+    <div class="ppt-list" id="pptList"></div>
+    <button class="export-btn" onclick="exportToPPT()">📥 导出所选题目为 PPT</button>
+  </div>
+  <table class="teacher-table" id="table-feedback">
+    <thead><tr><th>时间</th><th>班级</th><th>姓名</th><th>意见内容</th></tr></thead>
+    <tbody id="teacherFeedbackBody"><tr><td colspan="4" style="text-align:center;">加载中...</td></tr></tbody>
+  </table>
+  <div id="table-audit" class="teacher-table">
+    <h3>💎 云端共享角色审核 (审核通过后全班可抽到)</h3>
+    <div id="auditList" style="display:flex; flex-wrap:wrap; gap:15px; margin-top:15px;"></div>
+  </div>
+</div>
+
+<script src="questions.js"></script>
+
+<script>
+const SUPABASE_URL = 'https://vpojsqmoxwyexainqizx.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_TyhcbLf7tSwpqpuxvmzEpQ_L8xBDFv0';
+const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let toastTimeout;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block'; t.style.opacity = '1';
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.style.display = 'none', 300); }, 2000);
+}
+
+// ====== 背包系统 ======
+let bagItems = JSON.parse(localStorage.getItem('pvz_bag') || '[]');
+let currentBoxId = null;
+let currentBoxType = ''; 
+let tempMusicBase64 = '';
+let photoUploaded = false;
+
+function addToBag(type) {
+  bagItems.push({ id: Date.now() + Math.random(), type: type });
+  localStorage.setItem('pvz_bag', JSON.stringify(bagItems));
+  showToast('🎁 宝箱已存入背包！');
+}
+
+function openBag() {
+  const list = document.getElementById('bagItemsList');
+  list.innerHTML = '';
+  if (bagItems.length === 0) {
+    list.innerHTML = '<div style="color:#888; width:100%;">背包空空如也，快去答题吧！</div>';
+  } else {
+    bagItems.forEach(item => {
+      let icon = '🎁'; let name = '神秘宝箱';
+      if (item.type.includes('plant')) { icon = '🌱'; name = '植物宝箱'; }
+      if (item.type.includes('zombie')) { icon = '🧟'; name = '僵尸宝箱'; }
+      if (item.type === 'music') { icon = '🎵'; name = '音乐宝箱'; }
+      if (item.type.includes('shared')) { icon = '💎'; name = '稀有共享'; }
+
+      const div = document.createElement('div');
+      div.style.cssText = 'border:2px solid #7b5b3f; border-radius:8px; padding:10px; width:80px; cursor:pointer; background:#f4f1ea;';
+      div.innerHTML = `<div style="font-size:32px;">${icon}</div><div style="font-size:12px; font-weight:bold; margin-top:5px;">${name}</div>`;
+      div.onclick = () => useBagItem(item.id);
+      list.appendChild(div);
+    });
+  }
+  document.getElementById('bagModal').classList.add('active');
+}
+
+function useBagItem(id) {
+  const item = bagItems.find(i => i.id === id);
+  if (!item) return;
+  currentBoxId = id;
+  document.getElementById('bagModal').classList.remove('active');
+  openBox(item.type);
+}
+
+function cancelBox() {
+  currentBoxId = null;
+  document.getElementById('customBoxModal').classList.remove('active');
+  showToast('宝箱已放回背包');
+}
+
+// ====== 图片融合技术 ======
+function createCombinedImage(type) {
+  const userCanvas = document.getElementById('qCanvas');
+  const combinedCanvas = document.createElement('canvas');
+  combinedCanvas.width = 64;
+  combinedCanvas.height = 64;
+  const ctx = combinedCanvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  if (type.includes('plant')) {
+    ctx.fillStyle = '#8b5a2b'; 
+    ctx.beginPath(); ctx.moveTo(16, 48); ctx.lineTo(48, 48); ctx.lineTo(44, 64); ctx.lineTo(20, 64); ctx.fill();
+    ctx.fillStyle = '#4caf50'; 
+    ctx.beginPath(); ctx.ellipse(32, 48, 24, 10, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#388e3c'; 
+    ctx.beginPath(); ctx.ellipse(16, 48, 8, 6, Math.PI/4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(48, 48, 8, 6, -Math.PI/4, 0, Math.PI * 2); ctx.fill();
+  } else if (type.includes('zombie')) {
+    ctx.fillStyle = '#556b2f'; 
+    ctx.fillRect(16, 40, 32, 24);
+    ctx.fillStyle = '#7cb342'; 
+    ctx.fillRect(0, 32, 16, 8); ctx.fillRect(48, 32, 16, 8);
+  }
+
+  ctx.drawImage(userCanvas, 8, 8, 48, 48);
+
+  if (type.includes('zombie')) {
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = 'rgba(100, 255, 100, 0.3)';
+    ctx.fillRect(8, 8, 48, 48);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  return combinedCanvas.toDataURL('image/png');
+}
+
+// ====== 宝箱逻辑 ======
+function openBox(type) {
+  currentBoxType = type;
+  const modal = document.getElementById('customBoxModal');
+  modal.classList.add('active');
+  
+  document.getElementById('photoBtnArea').style.display = 'none';
+  document.getElementById('musicBtnArea').style.display = 'none';
+  document.getElementById('previewArea').style.display = 'none';
+  document.getElementById('musicPreviewArea').style.display = 'none';
+  document.getElementById('photoUpload').value = '';
+  document.getElementById('musicUpload').value = '';
+  photoUploaded = false;
+  
+  if (type === 'music') {
+    document.getElementById('boxTitle').textContent = '🎵 音乐宝箱';
+    document.getElementById('boxDesc').textContent = '上传一段 MP4 音频替换当前背景音乐！';
+    document.getElementById('musicBtnArea').style.display = 'block';
+  } else {
+    if (type.includes('shared')) {
+      document.getElementById('boxTitle').textContent = type.includes('plant') ? '💎 共享植物宝箱' : '💎 共享僵尸宝箱';
+      document.getElementById('boxDesc').textContent = '上传后经老师审核，全班同学都能使用！';
+    } else {
+      document.getElementById('boxTitle').textContent = type.includes('plant') ? '🌱 本地植物宝箱' : '🧟 本地僵尸宝箱';
+      document.getElementById('boxDesc').textContent = '仅限当前设备使用的专属角色。';
+    }
+    
+    document.getElementById('photoBtnArea').style.display = 'block';
+    document.getElementById('plantForm').style.display = type.includes('plant') ? 'block' : 'none';
+    document.getElementById('zombieForm').style.display = type.includes('zombie') ? 'block' : 'none';
+    document.getElementById('charType').value = type;
+  }
+}
+
+function processMusic(input) {
+  if (input.files && input.files[0]) {
+    const file = input.files[0];
+    if (file.size > 5 * 1024 * 1024) return showToast('文件太大，请上传小于 5MB 的音频');
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      tempMusicBase64 = e.target.result;
+      document.getElementById('musicPreviewArea').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function saveMusic() {
+  if (!tempMusicBase64) return showToast('请先上传音乐');
+  const data = tempMusicBase64; // 暂存，避免随后被清空
+
+  // 先从背包移除该宝箱
+  if (currentBoxId) {
+    bagItems = bagItems.filter(i => i.id !== currentBoxId);
+    localStorage.setItem('pvz_bag', JSON.stringify(bagItems));
+    currentBoxId = null;
+  }
+
+  // 第一步：先关闭弹窗，保证无论如何都关得掉（避免任何后续异常导致卡住）
+  document.getElementById('customBoxModal').classList.remove('active');
+  tempMusicBase64 = '';
+
+  // 第二步：将音源切到“用户上传的音乐”并持久化
+  window.__customBgm = data;
+  musicMode = 'custom';
+  localStorage.setItem('pvz_music_mode', musicMode);
+
+  // 第三步：存入 IndexedDB（容量大，不受 localStorage 5MB 配额限制）
+  // 注意：必须在清空 tempMusicBase64 之前把值传给 saveBgmDB，否则会存进空串。
+  saveBgmDB(data).then(() => showToast('音乐保存成功！已切换为你上传的音乐 🎶'))
+                 .catch(() => showToast('音乐已保存（本次会话可用）'));
+
+  updateMusicSrcBtn();
+  if (!isMusicMuted) startMusic(); // 立即应用新音源
+}
+
+function toggleCharForm() {
+  const type = document.getElementById('charType').value;
+  if (type.includes('plant')) {
+    document.getElementById('plantForm').style.display = 'block';
+    document.getElementById('zombieForm').style.display = 'none';
+  } else {
+    document.getElementById('plantForm').style.display = 'none';
+    document.getElementById('zombieForm').style.display = 'block';
+  }
+}
+
+function processImage(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const img = new Image();
+      img.onload = function () {
+        const canvas = document.getElementById('qCanvas'), ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        document.getElementById('previewArea').style.display = 'block';
+        photoUploaded = true;
+      }; img.src = e.target.result;
+    }; reader.readAsDataURL(input.files[0]);
+  }
+}
+
+async function saveCustomChar() {
+  const name = $('charName').value.trim();
+  if (!name) return showToast('请给角色起个名字！');
+  if (!photoUploaded) return showToast('请先上传一张照片再保存～');
+  
+  const imgBase64 = createCombinedImage(currentBoxType);
+  const isPlant = currentBoxType.includes('plant');
+  const isShared = currentBoxType.includes('shared');
+  
+  let speed = isPlant ? parseFloat($('plantSpeed').value) : parseFloat($('zombieSpeed').value);
+  let hp = isPlant ? 1 : parseInt($('zombieHp').value);
+  
+  if (isShared) {
+    const { error } = await dbClient.from('shared_chars').insert({
+      creator_name: state.name, char_type: isPlant ? 'shared_plant' : 'shared_zombie',
+      name: name, img_base64: imgBase64, attr_speed: speed, attr_hp: hp, status: 'pending'
+    });
+    if (error) showToast('上传失败'); else showToast('已提交审核！');
+  } else {
+    if (isPlant) {
+      localCustomPlants.push({ name, img: imgBase64, speed });
+      localStorage.setItem('pvz_custom_plants', JSON.stringify(localCustomPlants));
+    } else {
+      localCustomZombies.push({ name, img: imgBase64, speed, hp });
+      localStorage.setItem('pvz_custom_zombies', JSON.stringify(localCustomZombies));
+    }
+    showToast('保存成功！下次答题/刷怪生效');
+  }
+  
+  if (currentBoxId) {
+    bagItems = bagItems.filter(i => i.id !== currentBoxId);
+    localStorage.setItem('pvz_bag', JSON.stringify(bagItems));
+    currentBoxId = null;
+  }
+  
+  $('customBoxModal').classList.remove('active');
+  location.reload();
+}
+
+// 音乐引擎
+let audioCtx = null, musicInterval = null, isMusicMuted = false, customAudioPlayer = null; 
+let musicMode = 'original'; // 'original' = 原声 8-bit；'custom' = 用户上传的音乐
+const notes = [523.25, 523.25, 659.25, 783.99, 523.25, 523.25, 659.25, 783.99, 440.00, 440.00, 554.37, 659.25, 440.00, 440.00, 554.37, 659.25, 493.88, 493.88, 587.33, 739.99, 493.88, 493.88, 587.33, 739.99, 523.25, 523.25, 659.25, 783.99, 523.25, 659.25, 783.99, 1046.50];
+let currentNoteIndex = 0;
+function initMusic() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function playNextNote() {
+  if (isMusicMuted || !audioCtx || audioCtx.state === 'suspended') return;
+  const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+  osc.type = 'square'; osc.frequency.value = notes[currentNoteIndex];
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
+  gain.gain.setValueAtTime(0.03, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  osc.start(now); osc.stop(now + 0.15);
+  currentNoteIndex = (currentNoteIndex + 1) % notes.length;
+}
+function startMusic()  {
+  // 自定义音源：优先播放用户上传的音乐
+  if (musicMode === 'custom') {
+    const customBgm = window.__customBgm || localStorage.getItem('pvz_custom_bgm');
+    if (customBgm) {
+      if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+      if (customAudioPlayer) customAudioPlayer.pause();
+      customAudioPlayer = new Audio(customBgm);
+      customAudioPlayer.loop = true;
+      customAudioPlayer.volume = 0.5;
+      customAudioPlayer.play().catch(e => console.log('等待用户交互播放'));
+      return;
+    }
+    // 没有自定义音乐，自动回退到原声
+    musicMode = 'original';
+    updateMusicSrcBtn();
+  }
+  // 原声 8-bit
+  if (customAudioPlayer) { customAudioPlayer.pause(); customAudioPlayer = null; }
+  if (musicInterval) clearInterval(musicInterval);
+  initMusic(); if (audioCtx.state === 'suspended') audioCtx.resume();
+  musicInterval = setInterval(playNextNote, 200);
+}
+function toggleMusic() { 
+  isMusicMuted = !isMusicMuted; 
+  const btn = document.getElementById('musicBtn'); 
+  if (isMusicMuted) { 
+    btn.textContent = '🔇 音乐关'; btn.style.background = '#777'; btn.style.boxShadow = '0 3px 0 #444';
+    if (customAudioPlayer) customAudioPlayer.pause();
+  } else { 
+    btn.textContent = '🎵 音乐开'; btn.style.background = '#2196f3'; btn.style.boxShadow = '0 3px 0 #1565c0'; 
+    if (customAudioPlayer) customAudioPlayer.play();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); 
+  } 
+}
+// 切换音源：原声 / 用户上传的音乐
+function updateMusicSrcBtn() {
+  const b = document.getElementById('musicSrcBtn');
+  if (!b) return;
+  if (musicMode === 'custom') {
+    b.textContent = '🎶 音源:我的'; b.style.background = '#ff9800'; b.style.boxShadow = '0 3px 0 #e65100';
+  } else {
+    b.textContent = '🎶 音源:原声'; b.style.background = '#9c27b0'; b.style.boxShadow = '0 3px 0 #6a1b9a';
+  }
+}
+function switchMusicSource() {
+  if (musicMode === 'original') {
+    if (!window.__customBgm && !localStorage.getItem('pvz_custom_bgm')) {
+      return showToast('还没有上传音乐，请先用「音乐宝箱」上传～');
+    }
+    musicMode = 'custom';
+  } else {
+    musicMode = 'original';
+  }
+  localStorage.setItem('pvz_music_mode', musicMode);
+  updateMusicSrcBtn();
+  startMusic();
+  showToast(musicMode === 'custom' ? '已切换到你上传的音乐 🎶' : '已切换为原声音乐 🎵');
+}
+
+// ====== 自定义背景音乐：用 IndexedDB 存储（容量大，localStorage 放不下大体积 base64）======
+const BGM_DB_NAME = 'pvz_bgm_db', BGM_STORE = 'bgm';
+function openBgmDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(BGM_DB_NAME, 1);
+    req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains(BGM_STORE)) req.result.createObjectStore(BGM_STORE); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function saveBgmDB(data) {
+  const db = await openBgmDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(BGM_STORE, 'readwrite');
+    tx.objectStore(BGM_STORE).put(data, 'custom');
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+function loadBgmDB() {
+  return openBgmDB().then(db => new Promise(resolve => {
+    const tx = db.transaction(BGM_STORE, 'readonly');
+    const req = tx.objectStore(BGM_STORE).get('custom');
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => resolve(null);
+  })).catch(() => null);
+}
+
+// 基础配置
+const ROWS = 5, COLS = 9;
+const PLANT_TYPES = {
+  peashooter: { name: '豌豆射手', emoji: '🌱', cooldown: 1.0, dmg: 10, hp: 1, desc: '每隔 1 秒发射一颗豌豆，造成 10 点伤害。' },
+  cornpult:   { name: '玉米投手', emoji: '🌽', cooldown: 1.0, dmg: 10, hp: 1, desc: '每隔 1 秒投射一颗玉米，造成 10 点伤害。' },
+  snowpea:    { name: '寒冰射手', emoji: '❄️', cooldown: 1.0, dmg: 10, hp: 1, freeze: true, desc: '每隔 1 秒发射冰豌豆，造成伤害并减缓僵尸速度。' },
+  repeater:   { name: '机枪豌豆', emoji: '🌿', cooldown: 0.5, dmg: 10, hp: 1, desc: '高攻速植物。每隔 0.5 秒发射一颗豌豆。' },
+  wallnut:    { name: '坚果墙',   emoji: '🥜', cooldown: 0, dmg: 0, hp: 10, desc: '没有攻击力，抵挡僵尸 10 次啃咬。' },
+  cannon:     { name: '加农炮',   emoji: '💥', cooldown: 10.0, dmg: 100, hp: 1, desc: '终极武器。每隔 10 秒发射炮弹，造成 100 点伤害。' },
+  potatomine: { name: '土豆地雷', emoji: '🥔', cooldown: 0, dmg: 9999, hp: 1, desc: '种下后需要 7 秒发芽，僵尸触碰后将其炸死。' },
+  stunshroom: { name: '眩晕蘑菇', emoji: '🍄', cooldown: 0, dmg: 0, hp: 1, desc: '僵尸触碰后蘑菇消失，该僵尸眩晕 7 秒。' }
+};
+const ZOMBIE_TYPES = {
+  normal: { name: '普通僵尸', emoji: '🧟‍♂️', hp: 100, speed: 0.3 },
+  cone:   { name: '路障僵尸', emoji: '🧟', hp: 200, speed: 0.3 },
+  bucket: { name: '铁桶僵尸', emoji: '🪣', hp: 300, speed: 0.3 },
+  football: { name: '橄榄球僵尸', emoji: '🏈', hp: 400, speed: 0.3 },
+  girl:   { name: '小妹妹僵尸', emoji: '👧', hp: 700, speed: 0.3 }
+};
+
+let localCustomPlants = JSON.parse(localStorage.getItem('pvz_custom_plants') || '[]');
+let localCustomZombies = JSON.parse(localStorage.getItem('pvz_custom_zombies') || '[]');
+let globalCustomPlants = [], globalCustomZombies = [];
+
+function registerCustomCharacters() {
+  localCustomPlants.forEach((cp, idx) => {
+    PLANT_TYPES[`custom_plant_${idx}`] = { name: cp.name, emoji: '🌱', img: cp.img, cooldown: cp.speed, dmg: 10, hp: 1, desc: `本地专属植物，攻速 ${cp.speed} 秒。` };
+  });
+  localCustomZombies.forEach((cz, idx) => {
+    ZOMBIE_TYPES[`custom_zombie_${idx}`] = { name: cz.name, emoji: '🧟', img: cz.img, hp: cz.hp, speed: cz.speed };
+  });
+  globalCustomPlants.forEach((gp, idx) => {
+    PLANT_TYPES[`global_plant_${idx}`] = { name: gp.name, emoji: '🌱', img: gp.img_base64, cooldown: gp.attr_speed, dmg: 10, hp: 1, desc: `共享植物，攻速 ${gp.attr_speed} 秒。` };
+  });
+  globalCustomZombies.forEach((gz, idx) => {
+    ZOMBIE_TYPES[`global_zombie_${idx}`] = { name: gz.name, emoji: '🧟', img: gz.img_base64, hp: gz.attr_hp, speed: gz.attr_speed };
+  });
+}
+
+let state = { mode: 'single', name: '', class: '', score: 0, level: 1, isPlaying: false, cards: [], selectedCardId: null, plants: [], zombies: [], bullets: [], lawnmowers: [true, true, true, true, true], spawnedZombies: 0, spawnTimer: 5, lastTime: 0, unlockedPlants: [], speedBonus: 0, wrongQuestions: [], totalWrong: 0, roomId: '', side: '', channel: null, pkHp: 100, pkZombieCount: 0 };
+const $ = id => document.getElementById(id);
+const lawn = $('lawn');
+
+window.onload = async () => {
+  if (window.location.search.includes('teacher')) {
+    document.body.style.background = '#f0f2f5'; $('loginScreen').style.display = 'none'; $('teacherScreen').classList.add('active'); loadTeacherData(); return;
+  }
+  let chances = parseInt(localStorage.getItem('pvz_feedback_chances') || '0'); $('feedbackChances').textContent = chances;
+  registerCustomCharacters();
+  try { await loadGlobalCustoms(); } catch (e) { console.warn('云端自定义角色加载失败，已跳过：', e); }
+
+  // 启动时加载音源选择 & 自定义背景音乐
+  musicMode = localStorage.getItem('pvz_music_mode') || 'original';
+  updateMusicSrcBtn();
+  loadBgmDB().then(d => {
+    if (d) { window.__customBgm = d; }
+    else {
+      const legacy = localStorage.getItem('pvz_custom_bgm');
+      if (legacy) { window.__customBgm = legacy; saveBgmDB(legacy).catch(() => {}); }
+    }
+    // 若选择的是自定义音源且数据已就绪，重新应用（修复刷新后仍是原声的加载时机问题）
+    if (musicMode === 'custom' && window.__customBgm && !isMusicMuted) startMusic();
+  });
+  const savedUser = localStorage.getItem('pvz_user');
+  if (savedUser) {
+    const user = JSON.parse(savedUser); state.name = user.name; state.class = user.class;
+    $('loginScreen').style.display = 'none'; $('levelSelectScreen').style.display = 'flex';
+  } else { $('loginScreen').style.display = 'flex'; }
+};
+
+async function loadGlobalCustoms() {
+  const { data } = await dbClient.from('shared_chars').select('*').eq('status', 'approved');
+  if (data) {
+    globalCustomPlants = data.filter(d => d.char_type.includes('plant'));
+    globalCustomZombies = data.filter(d => d.char_type.includes('zombie'));
+    registerCustomCharacters();
+  }
+}
+
+function login() {
+  const name = $('playerName').value.trim(), cls = $('playerClass').value.trim();
+  if (!name || !cls) return showToast('请填写姓名和班级！');
+  state.name = name; state.class = cls; localStorage.setItem('pvz_user', JSON.stringify({name, class: cls}));
+  $('loginScreen').style.display = 'none'; $('levelSelectScreen').style.display = 'flex';
+}
+
+function startGame(level) {
+  state.mode = 'single'; state.level = level;
+  $('levelSelectScreen').style.display = 'none'; $('gameScreen').classList.add('active');
+  $('singleTopBar').style.display = 'flex'; $('pkTopBar').style.display = 'none'; $('sideBar').style.display = 'block';
+  $('uiName').textContent = state.name;
+  if (level === 2) $('feedbackBtn').style.display = 'inline-block';
+  
+  addToBag('local_plant'); addToBag('local_zombie'); addToBag('shared_plant'); addToBag('shared_zombie'); addToBag('music');
+  showToast('测试模式：已发放 5 个宝箱到背包！');
+
+  dbClient.rpc('get_top_scores', { p_limit: 1000, p_offset: 0 }).then(({data}) => {
+    const me = data?.find(p => p.name === state.name && p.class === state.class);
+    if (me) { state.score = me.score; $('uiScore').textContent = state.score; }
+  });
+  fetchLeaderboard(); setInterval(fetchLeaderboard, 10000); startMusic(); showToast('请先点击右上角【答题获植物】开始游戏！');
+}
+
+function gameLoop(timestamp) {
+  if (state.mode !== 'single' || !state.isPlaying) return;
+  if (!state.lastTime) state.lastTime = timestamp;
+  let dt = (timestamp - state.lastTime) / 1000; state.lastTime = timestamp;
+  if (dt > 0.1) dt = 0.1;
+  updateSingle(dt); renderBoard(); requestAnimationFrame(gameLoop);
+}
+
+function updateSingle(dt) {
+  if (state.spawnedZombies < 20) {
+    state.spawnTimer -= dt;
+    if (state.spawnTimer <= 0) { spawnSingleZombie(); state.spawnedZombies++; $('zombieProgress').textContent = `${state.spawnedZombies}/20`; state.spawnTimer = 4 + Math.random() * 2; }
+  }
+  for (let i = state.zombies.length - 1; i >= 0; i--) {
+    let z = state.zombies[i];
+    if (z.stunTimer > 0) { z.stunTimer -= dt; continue; }
+    if (z.slowTimer > 0) z.slowTimer -= dt;
+    let currentBaseSpeed = z.speed + state.speedBonus;
+    let speed = z.slowTimer > 0 ? currentBaseSpeed * 0.8 : currentBaseSpeed;
+    
+    let col = Math.floor(z.x);
+    let plant = state.plants.find(p => p.row === z.row && p.col === col);
+    if (plant) {
+      if (plant.type.includes('potatomine')) {
+        if (Date.now() - plant.plantTime >= 7000) { z.hp -= 9999; state.plants = state.plants.filter(p => p.id !== plant.id); updateScore(10); continue; }
+      } else if (plant.type.includes('stunshroom')) { z.stunTimer = 7; state.plants = state.plants.filter(p => p.id !== plant.id); continue; }
+      z.attackTimer = (z.attackTimer || 0) - dt;
+      if (z.attackTimer <= 0) { z.attackTimer = 1.0; plant.hp -= 1; if (plant.hp <= 0) state.plants = state.plants.filter(p => p.id !== plant.id); }
+    } else {
+      z.x -= speed * dt;
+      if (z.x <= 0.2) {
+        if (state.lawnmowers[z.row]) { state.lawnmowers[z.row] = false; $('mower-' + z.row).classList.add('empty'); state.zombies = state.zombies.filter(zz => zz.row !== z.row); break; } 
+        else { gameOver(false); return; }
+      }
+    }
+  }
+  
+  state.plants.forEach(p => {
+    p.cd -= dt;
+    if (p.cd <= 0) {
+      if (!p.type.includes('wallnut') && !p.type.includes('potatomine') && !p.type.includes('stunshroom')) {
+        let targets = state.zombies.filter(z => z.row === p.row && z.x > p.col);
+        if (targets.length > 0) {
+          targets.sort((a,b) => a.x - b.x); let target = targets[0];
+          if (p.type.includes('cannon')) {
+            target.hp -= 100; p.cd = 10;
+            let ex = document.createElement('div'); ex.className = 'explosion'; ex.textContent = '💥';
+            ex.style.left = (target.x * (100/9)) + '%'; ex.style.top = (target.row * 20) + '%'; lawn.appendChild(ex); setTimeout(() => ex.remove(), 300);
+          } else {
+            state.bullets.push({ id: Date.now() + Math.random(), row: p.row, x: p.col + 0.5, dmg: PLANT_TYPES[p.type].dmg || 10, freeze: PLANT_TYPES[p.type].freeze || false, emoji: p.type.includes('cornpult') ? '🌽' : (p.type.includes('snowpea') ? '❄️' : '🟢') });
+            p.cd = PLANT_TYPES[p.type].cooldown;
+          }
+          if (target.hp <= 0) { state.zombies = state.zombies.filter(z => z.id !== target.id); updateScore(10); }
+        }
+      }
+    }
+  });
+  
+  for (let i = state.bullets.length - 1; i >= 0; i--) {
+    let b = state.bullets[i]; b.x += 10 * dt; let hit = false;
+    for (let z of state.zombies) {
+      if (z.row === b.row && b.x >= z.x && b.x <= z.x + 0.8) {
+        z.hp -= b.dmg; if (b.freeze) z.slowTimer = 2.0; hit = true;
+        if (z.hp <= 0) { state.zombies = state.zombies.filter(z => z.id !== z.id); updateScore(10); }
+        break;
+      }
+    }
+    if (hit || b.x > 9.5) state.bullets.splice(i, 1);
+  }
+  if (state.spawnedZombies >= 20 && state.zombies.length === 0) gameOver(true);
+}
+
+function spawnSingleZombie() {
+  const row = Math.floor(Math.random() * 5); const rand = Math.random(); let type = 'normal';
+  let pool = ['normal', 'cone', 'bucket', 'football', 'girl'];
+  if (state.level === 1) pool = ['normal', 'cone'];
+  else pool = ['normal', 'cone', 'bucket', 'football', 'girl'];
+  Object.keys(ZOMBIE_TYPES).forEach(k => { if (k.startsWith('custom_') || k.startsWith('global_')) pool.push(k); });
+
+  if (Math.random() < 0.2) {
+    const customKeys = pool.filter(k => k.startsWith('custom_') || k.startsWith('global_'));
+    if (customKeys.length > 0) type = customKeys[Math.floor(Math.random() * customKeys.length)];
+    else type = pool[Math.floor(Math.random() * pool.length)];
+  } else { type = pool[Math.floor(Math.random() * pool.length)]; }
+
+  const zData = ZOMBIE_TYPES[type];
+  state.zombies.push({ id: Date.now() + Math.random(), row, x: 9.5, hp: zData.hp, maxHp: zData.hp, speed: zData.speed, emoji: zData.emoji, img: zData.img, slowTimer: 0, attackTimer: 0, stunTimer: 0 });
+}
+
+function renderBoard() {
+  let plantsHtml = '', zombiesHtml = '', bulletsHtml = '';
+  state.plants.forEach(p => {
+    let inner = PLANT_TYPES[p.type].img ? `<img src="${PLANT_TYPES[p.type].img}" class="custom-img">` : PLANT_TYPES[p.type].emoji;
+    if (p.type.includes('potatomine')) inner = Date.now() - p.plantTime >= 7000 ? '🥔' : '🌱';
+    plantsHtml += `<div class="plant" style="left:${p.col * (100/9)}%; top:${p.row * 20}%"><div style="font-size:28px">${inner}</div></div>`;
+  });
+  state.zombies.forEach(z => {
+    const hpPct = Math.max(0, z.hp / z.maxHp * 100);
+    let classes = 'zombie'; if (z.slowTimer > 0) classes += ' slowed'; if (z.stunTimer > 0) classes += ' stunned';
+    let inner = z.img ? `<img src="${z.img}" class="custom-img">` : z.emoji;
+    zombiesHtml += `<div class="${classes}" style="left:${z.x * (100/9)}%; top:${z.row * 20}%"><div class="hp-bar"><div class="hp-fill" style="width:${hpPct}%"></div></div><div>${inner}</div></div>`;
+  });
+  state.bullets.forEach(b => { bulletsHtml += `<div class="bullet" style="left:${b.x * (100/9)}%; top:${b.row * 20}%">${b.emoji}</div>`; });
+  
+  let container = $('entityLayer');
+  if (!container) { container = document.createElement('div'); container.id = 'entityLayer'; container.style.cssText = 'position:absolute; inset:0; pointer-events:none;'; lawn.appendChild(container); }
+  container.innerHTML = plantsHtml + zombiesHtml + bulletsHtml;
+}
+
+function renderCards() {
+  const area = $('cardArea'); area.innerHTML = '';
+  if (state.cards.length === 0) { area.innerHTML = '<div class="empty-cards">卡槽为空，快去答题吧！</div>'; return; }
+  state.cards.forEach(c => {
+    let data = PLANT_TYPES[c.type] || ZOMBIE_TYPES[c.type.replace('zombie_', '')];
+    const div = document.createElement('div'); div.className = 'card' + (state.selectedCardId === c.id ? ' selected' : '');
+    if (data && data.img) div.innerHTML = `<img src="${data.img}"><div class="name">${data.name}</div>`;
+    else if (data) div.innerHTML = `<div class="emoji">${data.emoji}</div><div class="name">${data.name}</div>`;
+    div.onclick = () => { state.selectedCardId = c.id; renderCards(); }; area.appendChild(div);
+  });
+}
+
+lawn.onclick = (e) => {
+  if (!state.selectedCardId) return;
+  const rect = lawn.getBoundingClientRect(); const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+  const col = Math.floor(x / (rect.width / COLS)); const row = Math.floor(y / (rect.height / ROWS));
+  const cardIdx = state.cards.findIndex(c => c.id === state.selectedCardId);
+  if (cardIdx === -1) return; const type = state.cards[cardIdx].type;
+  
+  if (state.mode === 'single') {
+    if (type.includes('zombie')) return showToast('单机模式不能放僵尸！');
+    if (state.plants.find(p => p.row === row && p.col === col)) return;
+    state.plants.push({ id: Date.now()+Math.random(), type, row, col, hp: PLANT_TYPES[type].hp, maxHp: PLANT_TYPES[type].hp, cd: 0, plantTime: Date.now() });
+    state.cards.splice(cardIdx, 1); state.selectedCardId = null; renderCards(); renderBoard();
+  } else { if (window.pkPlaceHandler) window.pkPlaceHandler(type, row, col, cardIdx); }
+};
+
+let currentQ = null, selectedOpts = new Set(), isAnswering = false, qPool = [];
+let quizStartTime = 0, quizModifyCount = 0;
+
+// 题目图片地址处理：base64 内嵌数据原样使用；普通路径则统一补 .png（容错重复后缀）
+function qImgSrc(p) {
+  if (!p) return '';
+  if (typeof p === 'string' && p.startsWith('data:')) return p;
+  return p.replace(/\.(png|jpe?g)$/i, '') + '.png';
+}
+
+function openQuiz() {
+  if (state.mode === 'single') state.isPlaying = false; 
+  if (qPool.length === 0) {
+    const qs = state.level === 1 ? QUESTIONS_L1 : QUESTIONS_L2;
+    qPool = qs.map((_, i) => i).sort(() => Math.random() - 0.5);
+  }
+  currentQ = (state.level === 1 ? QUESTIONS_L1 : QUESTIONS_L2)[qPool.pop()];
+  selectedOpts.clear(); isAnswering = false; quizStartTime = Date.now(); quizModifyCount = 0;
+  
+  $('quizQuestion').textContent = currentQ.q;
+  const img = $('quizImage');
+  if (currentQ.image) { img.style.display = 'block'; img.src = qImgSrc(currentQ.image); img.onerror = function() { this.style.display = 'none'; }; } else { img.style.display = 'none'; }
+  
+  const box = $('quizOptions'); box.innerHTML = '';
+  currentQ.options.forEach((opt, i) => {
+    const btn = document.createElement('button'); btn.className = 'option'; btn.textContent = String.fromCharCode(65 + i) + '. ' + opt;
+    btn.onclick = () => onOptClick(i, btn); box.appendChild(btn);
+  });
+  $('quizSubmit').style.display = currentQ.multi ? 'block' : 'none'; $('quizSubmit').disabled = true; $('quizModal').classList.add('active');
+}
+
+function onOptClick(i, btn) {
+  if (isAnswering) return;
+  if (currentQ.multi) {
+    quizModifyCount++;
+    if (selectedOpts.has(i)) { selectedOpts.delete(i); btn.classList.remove('selected'); } else { selectedOpts.add(i); btn.classList.add('selected'); }
+    $('quizSubmit').disabled = selectedOpts.size === 0;
+  } else { selectedOpts = new Set([i]); btn.classList.add('selected'); submitAnswer(); }
+}
+
+function submitAnswer() {
+  if (isAnswering || selectedOpts.size === 0) return; isAnswering = true;
+  const timeSpent = Math.floor((Date.now() - quizStartTime) / 1000);
+  const isCorrect = selectedOpts.size === currentQ.answer.length && currentQ.answer.every(i => selectedOpts.has(i));
+  const btns = [...$('quizOptions').children];
+  btns.forEach((b, i) => { b.disabled = true; if (currentQ.answer.includes(i)) b.classList.add('right'); else if (selectedOpts.has(i)) b.classList.add('wrong'); });
+  
+  setTimeout(() => {
+    $('quizModal').classList.remove('active');
+    if (isCorrect) {
+      if (state.mode === 'single') {
+        updateScore(20); showBlindbox();
+        if (Math.random() < 0.01) setTimeout(() => { addToBag('music'); }, 500);
+      } else { if (window.pkAnswerHandler) window.pkAnswerHandler(true); }
+    } else {
+      if (state.mode === 'single') {
+        state.totalWrong++; state.wrongQuestions.push({ ...currentQ, timeSpent, modifyCount: quizModifyCount });
+        state.speedBonus += 0.1; $('uiSpeedBonus').textContent = '+' + state.speedBonus.toFixed(1);
+        showToast('答错了！僵尸加速！'); resumeGame(); 
+      } else { if (window.pkAnswerHandler) window.pkAnswerHandler(false); }
+    }
+  }, 600);
+}
+
+function showBlindbox() { $('blindboxDisplay').style.display = 'block'; $('blindboxDisplay').textContent = '🎁'; $('rewardPlant').style.display = 'none'; $('rewardText').style.display = 'none'; $('blindboxModal').classList.add('active'); }
+function openBlindbox() {
+  const box = $('blindboxDisplay'); if (box.textContent === '💥') return; box.textContent = '💥';
+  setTimeout(() => {
+    box.style.display = 'none';
+    const keys = ['peashooter', 'cornpult', 'snowpea', 'repeater', 'wallnut', 'cannon'];
+    Object.keys(PLANT_TYPES).forEach(k => { if(k.startsWith('custom_') || k.startsWith('global_')) keys.push(k); });
+    const randType = keys[Math.floor(Math.random() * keys.length)]; const plantData = PLANT_TYPES[randType];
+    const isFirstTime = !state.unlockedPlants.includes(randType); if (isFirstTime) state.unlockedPlants.push(randType);
+    state.cards.push({ id: Date.now(), type: randType }); renderCards();
+    
+    if (plantData.img) $('rewardPlant').innerHTML = `<img src="${plantData.img}" style="width:100px; height:100px; image-rendering:pixelated;">`;
+    else $('rewardPlant').textContent = plantData.emoji;
+    $('rewardPlant').style.display = 'block';
+    $('rewardText').textContent = isFirstTime ? `✨ 首次获得：${plantData.name}！` : `获得：${plantData.name}！`; $('rewardText').style.display = 'block';
+    
+    setTimeout(() => {
+      $('blindboxModal').classList.remove('active');
+      if (isFirstTime) { 
+        $('infoEmoji').innerHTML = plantData.img ? `<img src="${plantData.img}" style="width:100px; height:100px; image-rendering:pixelated;">` : plantData.emoji;
+        $('infoName').textContent = plantData.name; $('infoDesc').textContent = plantData.desc; $('plantInfoModal').classList.add('active');
+      } else { resumeGame(); }
+    }, 2000);
+  }, 800);
+}
+function closePlantInfo() { $('plantInfoModal').classList.remove('active'); resumeGame(); }
+function resumeGame() { if (state.mode === 'single') { state.isPlaying = true; state.lastTime = performance.now(); requestAnimationFrame(gameLoop); } }
+
+async function gameOver(isWin) {
+  state.isPlaying = false;
+  $('resultTitle').textContent = isWin ? '🎉 挑战成功！' : '💀 僵尸吃掉了你的脑子！';
+  $('resultTitle').style.color = isWin ? '#4caf50' : '#e53935'; $('resultScore').textContent = `最终得分：${state.score}`;
+  const notice = $('rewardNotice'); notice.innerHTML = '';
+  
+  if (isWin) {
+    if (state.level === 1) {
+      notice.innerHTML += `恭喜获得新植物：🥔 土豆地雷！<br>`; state.cards.push({ id: Date.now(), type: 'potatomine' });
+      if (state.totalWrong === 0) { notice.innerHTML += `🏆 完美通关！额外获得新植物：🍄 眩晕蘑菇！<br>`; state.cards.push({ id: Date.now() + 1, type: 'stunshroom' }); }
+    } else if (state.level === 2) {
+      let chances = parseInt(localStorage.getItem('pvz_feedback_chances') || '0');
+      chances++; localStorage.setItem('pvz_feedback_chances', chances); $('feedbackChances').textContent = chances;
+      notice.innerHTML += `🎁 通关第二关！获得 1 次【📝 写小纸条】机会！<br>`;
+    }
+    addToBag('shared_plant'); addToBag('shared_zombie');
+  }
+  
+  const wrongArea = $('wrongQuestionsArea');
+  if (state.wrongQuestions.length === 0) wrongArea.innerHTML = '<div style="text-align:center; color:#888;">本局全对，太棒啦！</div>';
+  else {
+    wrongArea.innerHTML = '<h4 style="margin:0 0 10px 0; color:#e53935;">本局错题回顾：</h4>';
+    state.wrongQuestions.forEach((q, idx) => {
+      let imgHtml = ''; if (q.image) imgHtml = `<img src="${qImgSrc(q.image)}">`;
+      wrongArea.innerHTML += `<div class="wrong-q-item"><div class="wrong-q-title">${idx + 1}. ${q.q}</div>${imgHtml}<div style="color:#4caf50; font-weight:bold;">正确答案：${q.answer.map(i => String.fromCharCode(65 + i)).join('')}</div></div>`;
+    });
+  }
+  $('resultModal').classList.add('active');
+  if (state.wrongQuestions.length > 0) {
+    const records = state.wrongQuestions.map(q => ({
+      student_name: state.name, student_class: state.class, question_text: q.q, options: q.options.join(' | '),
+      correct_answer: q.answer.map(i => String.fromCharCode(65 + i)).join(''), time_spent: q.timeSpent, modify_count: q.modifyCount
+    }));
+    await dbClient.from('wrong_questions').insert(records);
+  }
+}
+
+// 排行榜等其余逻辑
+function openFeedback() { let chances = parseInt(localStorage.getItem('pvz_feedback_chances') || '0'); if (chances <= 0) return showToast('没有写纸条的次数了！'); $('feedbackContent').value = ''; $('feedbackModal').classList.add('active'); }
+async function submitFeedback() {
+  const content = $('feedbackContent').value.trim(); if (!content) return showToast('请写点什么！'); let chances = parseInt(localStorage.getItem('pvz_feedback_chances') || '0'); if (chances <= 0) return showToast('次数不足！');
+  const btn = document.querySelector('#feedbackModal .quiz-submit'); btn.disabled = true; btn.textContent = '发送中...';
+  const { error } = await dbClient.from('feedbacks').insert({ student_name: state.name, student_class: state.class, content: content });
+  btn.disabled = false; btn.textContent = '发送给老师';
+  if (error) showToast('发送失败！'); else { chances--; localStorage.setItem('pvz_feedback_chances', chances); $('feedbackChances').textContent = chances; showToast('已成功发送！'); $('feedbackModal').classList.remove('active'); }
+}
+async function fetchLeaderboard() {
+  const { data, error } = await dbClient.rpc('get_top_scores', { p_limit: 20, p_offset: 0 });
+  if (error) return; const ul = $('leaderboard'); ul.innerHTML = '';
+  (data || []).forEach((player, index) => { const li = document.createElement('li'); li.innerHTML = `<span>${index + 1}. ${player.name} (${player.class})</span> <span>${player.score}分</span>`; ul.appendChild(li); });
+}
+async function updateScore(addScore) { state.score += addScore; $('uiScore').textContent = state.score; await dbClient.rpc('submit_score', { p_name: state.name, p_class: state.class, p_score: state.score }); }
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.teacher-table').forEach(t => t.classList.remove('active'));
+  if (tab === 'wrong') { document.querySelectorAll('.tab-btn')[0].classList.add('active'); $('table-wrong').classList.add('active'); } 
+  else if (tab === 'ppt') { document.querySelectorAll('.tab-btn')[1].classList.add('active'); $('table-ppt').classList.add('active'); renderPPTList(); } 
+  else if (tab === 'feedback') { document.querySelectorAll('.tab-btn')[2].classList.add('active'); $('table-feedback').classList.add('active'); }
+  else if (tab === 'audit') { document.querySelectorAll('.tab-btn')[3].classList.add('active'); $('table-audit').classList.add('active'); renderAuditList(); }
+}
+
+let allTeacherWrongData = [];
+async function loadTeacherData() {
+  const tbodyWrong = $('teacherWrongBody'); tbodyWrong.innerHTML = '<tr><td colspan="6" style="text-align:center;">加载中...</td></tr>';
+  const { data: dataWrong } = await dbClient.from('wrong_questions').select('*').order('created_at', { ascending: false }).limit(1000);
+  allTeacherWrongData = dataWrong || [];
+  if (allTeacherWrongData.length === 0) tbodyWrong.innerHTML = '<tr><td colspan="6" style="text-align:center;">暂无错题</td></tr>';
+  else {
+    tbodyWrong.innerHTML = '';
+    allTeacherWrongData.forEach(row => {
+      const date = new Date(row.created_at).toLocaleString();
+      let timeStr = row.time_spent !== null ? `${row.time_spent}秒` : '-', modStr = row.modify_count !== null ? `${row.modify_count}次` : '-';
+      tbodyWrong.innerHTML += `<tr><td>${date}</td><td>${row.student_class}</td><td>${row.student_name}</td><td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${row.question_text}">${row.question_text}</td><td style="color:${row.time_spent < 3 ? 'red' : (row.time_spent > 60 ? 'orange':'green')}">${timeStr}</td><td>${modStr}</td></tr>`;
+    });
+  }
+  const tbodyFeedback = $('teacherFeedbackBody'); tbodyFeedback.innerHTML = '<tr><td colspan="4" style="text-align:center;">加载中...</td></tr>';
+  const { data: dataFeedback } = await dbClient.from('feedbacks').select('*').order('created_at', { ascending: false }).limit(200);
+  if (!dataFeedback || dataFeedback.length === 0) tbodyFeedback.innerHTML = '<tr><td colspan="4" style="text-align:center;">暂无意见</td></tr>';
+  else {
+    tbodyFeedback.innerHTML = '';
+    dataFeedback.forEach(row => { const date = new Date(row.created_at).toLocaleString(); tbodyFeedback.innerHTML += `<tr><td>${date}</td><td>${row.student_class}</td><td>${row.student_name}</td><td>${row.content}</td></tr>`; });
+  }
+}
+
+async function renderAuditList() {
+  const listEl = $('auditList'); listEl.innerHTML = '<div>加载中...</div>';
+  const { data } = await dbClient.from('shared_chars').select('*').order('created_at', { ascending: false });
+  if (!data || data.length === 0) { listEl.innerHTML = '<div>暂无共享角色提交</div>'; return; }
+  listEl.innerHTML = '';
+  data.forEach(d => {
+    const div = document.createElement('div'); div.style.cssText = 'border:1px solid #ccc; padding:15px; border-radius:10px; background:#fff; width:200px; text-align:center;';
+    div.innerHTML = `
+      <img src="${d.img_base64}" style="width:64px; height:64px; image-rendering:pixelated; border-radius:8px; margin-bottom:10px;">
+      <div style="font-weight:bold; font-size:16px; margin-bottom:5px;">${d.name}</div>
+      <div style="font-size:12px; color:#666;">作者: ${d.creator_name}</div>
+      <div style="font-size:12px; color:#666; margin-bottom:10px;">类型: ${d.char_type.includes('plant') ? '植物' : '僵尸'}</div>
+      <div style="font-size:12px; color:#e53935;">速度: ${d.attr_speed} | 血量: ${d.attr_hp}</div>
+      <div style="margin-top:10px;">
+        ${d.status === 'pending' ? `<button onclick="approveChar(${d.id})" style="background:#4caf50; color:#fff; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; margin-right:5px;">审核通过</button>` : `<span style="color:#4caf50; font-weight:bold;">已通过</span>`}
+        <button onclick="revokeChar(${d.id})" style="background:#e53935; color:#fff; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">撤回</button>
+      </div>`;
+    listEl.appendChild(div);
+  });
+}
+async function approveChar(id) { await dbClient.from('shared_chars').update({ status: 'approved' }).eq('id', id); showToast('审核已通过！'); renderAuditList(); }
+async function revokeChar(id) { if (!confirm('确定要撤回该角色吗？撤回后全班将无法抽到。')) return; await dbClient.from('shared_chars').update({ status: 'revoked' }).eq('id', id); showToast('已撤回！'); renderAuditList(); }
+
+let validPptQuestions = []; 
+function renderPPTList() {
+  const listEl = $('pptList'); listEl.innerHTML = '';
+  if (allTeacherWrongData.length === 0) { listEl.innerHTML = '<div style="text-align:center; padding:20px;">暂无数据</div>'; return; }
+  const validData = allTeacherWrongData.filter(r => r.time_spent >= 3);
+  const errorCounts = {};
+  validData.forEach(row => { if (!errorCounts[row.question_text]) errorCounts[row.question_text] = { count: 0, options: row.options, correct: row.correct_answer }; errorCounts[row.question_text].count++; });
+  const sortedQuestions = Object.keys(errorCounts).map(q => { return { question: q, ...errorCounts[q] }; }).sort((a, b) => b.count - a.count);
+  validPptQuestions = sortedQuestions.filter(q => q.count >= 2).slice(0, 15); 
+  if (validPptQuestions.length === 0) { listEl.innerHTML = '<div style="text-align:center; padding:20px;">目前没有错误率极高的题目(已过滤3秒内秒选)。</div>'; return; }
+  validPptQuestions.forEach((qData, idx) => {
+    const div = document.createElement('div'); div.className = 'ppt-item';
+    div.innerHTML = `<div class="ppt-item-info"><div class="ppt-item-title">${idx + 1}. ${qData.question}</div><div class="ppt-item-stats">累计错误次数：${qData.count} 次 | 正确答案：${qData.correct}</div></div><input type="checkbox" class="ppt-checkbox" value="${idx}" checked>`;
+    listEl.appendChild(div);
+  });
+}
+function exportToPPT() {
+  if (validPptQuestions.length === 0) return showToast('没有可导出的题目！');
+  const checkboxes = document.querySelectorAll('.ppt-checkbox:checked');
+  if (checkboxes.length === 0) return showToast('请至少勾选一道题目！');
+  const pptx = new PptxGenJS(); pptx.layout = 'LAYOUT_16x9';
+  checkboxes.forEach(cb => {
+    const qData = validPptQuestions[cb.value]; const slide = pptx.addSlide();
+    slide.addText("重点错题讲解", { x: 0.5, y: 0.2, w: 9, h: 0.5, fontSize: 24, bold: true, color: "e53935" });
+    slide.addText(`题目：${qData.question}`, { x: 0.5, y: 1.0, w: 9, h: 1.5, fontSize: 18, color: "333333", wrap: true });
+    const optsArr = qData.options.split(' | '); let optText = "";
+    optsArr.forEach((opt, i) => { optText += `${String.fromCharCode(65 + i)}. ${opt}\n`; });
+    slide.addText(optText, { x: 0.5, y: 2.8, w: 9, h: 2.0, fontSize: 16, color: "555555" });
+    slide.addText(`正确答案：${qData.correct}`, { x: 0.5, y: 5.0, w: 9, h: 0.5, fontSize: 20, bold: true, color: "4caf50" });
+    slide.addText(`⚠️ 该题全班累计做错 ${qData.count} 次，请重点分析！`, { x: 0.5, y: 5.5, w: 9, h: 0.5, fontSize: 16, color: "e53935" });
+    slide.addText("讲解思路：（老师在此补充）", { x: 0.5, y: 6.0, w: 9, h: 0.5, fontSize: 14, color: "999999", italic: true });
+  });
+  pptx.writeFile({ fileName: "物理错题讲解_自动生成.pptx" });
+}
+</script>
+
+<script src="pk.js"></script>
+</body>
+</html>
