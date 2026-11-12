@@ -830,8 +830,6 @@ function startGame(level) {
   $('uiName').textContent = state.name;
   if (level === 2) $('feedbackBtn').style.display = 'inline-block';
   
-  addToBag('local_plant'); addToBag('local_zombie'); addToBag('shared_plant'); addToBag('shared_zombie'); addToBag('music');
-  showToast('测试模式：已发放 5 个宝箱到背包！');
 
   dbClient.rpc('get_top_scores', { p_limit: 1000, p_offset: 0 }).then(({data}) => {
     const me = data?.find(p => p.name === state.name && p.class === state.class);
@@ -1096,7 +1094,23 @@ async function gameOver(isWin) {
       chances++; localStorage.setItem('pvz_feedback_chances', chances); $('feedbackChances').textContent = chances;
       notice.innerHTML += `🎁 通关第二关！获得 1 次【📝 写小纸条】机会！<br>`;
     }
-    addToBag('shared_plant'); addToBag('shared_zombie');
+       // ====== 正式版：按概率掉落宝箱 ======
+    if (state.totalWrong === 0) {
+      // 全对通关：5% 概率出共享宝箱
+      if (Math.random() < 0.05) {
+        setTimeout(() => { 
+          addToBag(Math.random() > 0.5 ? 'shared_plant' : 'shared_zombie'); 
+        }, 1000);
+      }
+    } else {
+      // 有错题但通关：5% 概率出本地宝箱
+      if (Math.random() < 0.05) {
+        setTimeout(() => { 
+          addToBag(Math.random() > 0.5 ? 'local_plant' : 'local_zombie'); 
+        }, 1000);
+      }
+    }
+    // ======================================
   }
   
   const wrongArea = $('wrongQuestionsArea');
