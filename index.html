@@ -131,6 +131,11 @@
   .custom-form input[type="range"] { width: 100%; accent-color: #43a047; }
   .form-row { display: flex; gap: 12px; }
   .form-row > div { flex: 1; }
+
+  /* 音乐选择列表样式 */
+  .music-list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-radius: 8px; background: #fff; border: 1px solid #ddd; margin-bottom: 8px; cursor: pointer; transition: 0.2s; }
+  .music-list-item:hover { background: #f0f7ff; border-color: #2196f3; }
+  .music-list-item.active { background: #e3f2fd; border-color: #1565c0; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -173,7 +178,7 @@
     <div>🧟 进度: <span id="zombieProgress">0/20</span></div>
     <button class="quiz-btn" style="background:#8bc34a; box-shadow:0 3px 0 #558b2f;" onclick="openBag()">🎒 背包</button>
     <button id="musicBtn" class="quiz-btn" style="background:#2196f3;" onclick="toggleMusic()">🎵 音乐开</button>
-    <button id="musicSrcBtn" class="quiz-btn" style="background:#9c27b0; box-shadow:0 3px 0 #6a1b9a;" onclick="switchMusicSource()">🎶 音源:原声</button>
+    <button id="musicSrcBtn" class="quiz-btn" style="background:#9c27b0; box-shadow:0 3px 0 #6a1b9a;" onclick="openMusicSelect()">🎶 音源选择</button>
     <button class="quiz-btn" onclick="openQuiz()">📝 答题获植物</button>
     <button id="feedbackBtn" class="quiz-btn" style="background:#9c27b0; display:none;" onclick="openFeedback()">📝 写小纸条 (<span id="feedbackChances">0</span>)</button>
   </div>
@@ -300,7 +305,6 @@
     </div>
 
     <button class="quiz-submit" style="background:#777; margin-top:10px; box-shadow:0 4px 0 #444;" onclick="cancelBox()">暂不使用，放回背包</button>
-
   </div>
 </div>
 
@@ -310,6 +314,18 @@
     <p style="font-size:13px; color:#666; margin-bottom:15px;">在这里存放你获得的宝箱，点击即可打开。</p>
     <div id="bagItemsList" style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; min-height:100px;"></div>
     <button class="quiz-submit" style="background:#999; margin-top:15px;" onclick="document.getElementById('bagModal').classList.remove('active')">关闭背包</button>
+  </div>
+</div>
+
+<!-- 音乐选择弹窗 -->
+<div class="modal" id="musicSelectModal">
+  <div class="quiz-card" style="text-align:center;">
+    <h2 style="color:#2196f3; margin-top:0;">🎶 我的音源库</h2>
+    <p style="font-size:13px; color:#666; margin-bottom:15px;">选择你想播放的背景音乐</p>
+    <div id="musicListWrap" style="display:flex; flex-direction:column; min-height:100px;">
+      <!-- 动态生成列表 -->
+    </div>
+    <button class="quiz-submit" style="background:#999; margin-top:15px;" onclick="document.getElementById('musicSelectModal').classList.remove('active')">关闭</button>
   </div>
 </div>
 
@@ -460,7 +476,7 @@ function openBox(type) {
   
   if (type === 'music') {
     document.getElementById('boxTitle').textContent = '🎵 音乐宝箱';
-    document.getElementById('boxDesc').textContent = '上传一段 MP4 音频替换当前背景音乐！';
+    document.getElementById('boxDesc').textContent = '上传一段 MP4 音频加入你的专属音源库！';
     document.getElementById('musicBtnArea').style.display = 'block';
   } else {
     if (type.includes('shared')) {
@@ -486,38 +502,39 @@ function processMusic(input) {
     reader.onload = function(e) {
       tempMusicBase64 = e.target.result;
       document.getElementById('musicPreviewArea').style.display = 'block';
+      document.getElementById('musicPreviewArea').querySelector('p').textContent = `✅ 已加载：${file.name}，点击保存生效。`;
     };
     reader.readAsDataURL(file);
   }
 }
 
-function saveMusic() {
+async function saveMusic() {
   if (!tempMusicBase64) return showToast('请先上传音乐');
-  const data = tempMusicBase64; // 暂存，避免随后被清空
+  
+  const musicId = 'music_' + Date.now();
+  const musicName = '我的音乐 ' + (bagItems.filter(i => i.type === 'music').length + 1); 
 
-  // 先从背包移除该宝箱
+  // 先存入 IndexedDB
+  try {
+    await saveBgmDB(musicId, musicName, tempMusicBase64);
+    showToast('音乐已成功加入我的音源库！');
+  } catch(e) {
+    showToast('保存失败，可能是存储空间不足');
+  }
+
+  // 扣除背包宝箱
   if (currentBoxId) {
     bagItems = bagItems.filter(i => i.id !== currentBoxId);
     localStorage.setItem('pvz_bag', JSON.stringify(bagItems));
     currentBoxId = null;
   }
 
-  // 第一步：先关闭弹窗，保证无论如何都关得掉（避免任何后续异常导致卡住）
   document.getElementById('customBoxModal').classList.remove('active');
   tempMusicBase64 = '';
-
-  // 第二步：将音源切到“用户上传的音乐”并持久化
-  window.__customBgm = data;
-  musicMode = 'custom';
-  localStorage.setItem('pvz_music_mode', musicMode);
-
-  // 第三步：存入 IndexedDB（容量大，不受 localStorage 5MB 配额限制）
-  // 注意：必须在清空 tempMusicBase64 之前把值传给 saveBgmDB，否则会存进空串。
-  saveBgmDB(data).then(() => showToast('音乐保存成功！已切换为你上传的音乐 🎶'))
-                 .catch(() => showToast('音乐已保存（本次会话可用）'));
-
-  updateMusicSrcBtn();
-  if (!isMusicMuted) startMusic(); // 立即应用新音源
+  
+  // 自动切换到新上传的音乐
+  currentMusicId = musicId;
+  startMusic();
 }
 
 function toggleCharForm() {
@@ -586,9 +603,11 @@ async function saveCustomChar() {
   location.reload();
 }
 
-// 音乐引擎
+// ====== 音乐引擎 ======
 let audioCtx = null, musicInterval = null, isMusicMuted = false, customAudioPlayer = null; 
-let musicMode = 'original'; // 'original' = 原声 8-bit；'custom' = 用户上传的音乐
+let currentMusicId = localStorage.getItem('pvz_current_music') || 'original';
+let bgmList = []; // 缓存所有已上传的音乐信息
+
 const notes = [523.25, 523.25, 659.25, 783.99, 523.25, 523.25, 659.25, 783.99, 440.00, 440.00, 554.37, 659.25, 440.00, 440.00, 554.37, 659.25, 493.88, 493.88, 587.33, 739.99, 493.88, 493.88, 587.33, 739.99, 523.25, 523.25, 659.25, 783.99, 523.25, 659.25, 783.99, 1046.50];
 let currentNoteIndex = 0;
 function initMusic() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
@@ -602,29 +621,36 @@ function playNextNote() {
   osc.start(now); osc.stop(now + 0.15);
   currentNoteIndex = (currentNoteIndex + 1) % notes.length;
 }
-function startMusic()  {
-  // 自定义音源：优先播放用户上传的音乐
-  if (musicMode === 'custom') {
-    const customBgm = window.__customBgm || localStorage.getItem('pvz_custom_bgm');
-    if (customBgm) {
-      if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
-      if (customAudioPlayer) customAudioPlayer.pause();
-      customAudioPlayer = new Audio(customBgm);
+
+async function startMusic()  {
+  if (currentMusicId !== 'original') {
+    // 播放自定义音乐
+    if (customAudioPlayer) customAudioPlayer.pause();
+    if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+    
+    let data = await getBgmDB(currentMusicId);
+    if (data) {
+      customAudioPlayer = new Audio(data);
       customAudioPlayer.loop = true;
       customAudioPlayer.volume = 0.5;
-      customAudioPlayer.play().catch(e => console.log('等待用户交互播放'));
+      if (!isMusicMuted) {
+        customAudioPlayer.play().catch(e => console.log('等待用户交互播放'));
+      }
       return;
+    } else {
+      // 如果找不到数据，回退到原声
+      currentMusicId = 'original';
+      localStorage.setItem('pvz_current_music', currentMusicId);
     }
-    // 没有自定义音乐，自动回退到原声
-    musicMode = 'original';
-    updateMusicSrcBtn();
   }
-  // 原声 8-bit
+  
+  // 播放原声
   if (customAudioPlayer) { customAudioPlayer.pause(); customAudioPlayer = null; }
   if (musicInterval) clearInterval(musicInterval);
   initMusic(); if (audioCtx.state === 'suspended') audioCtx.resume();
   musicInterval = setInterval(playNextNote, 200);
 }
+
 function toggleMusic() { 
   isMusicMuted = !isMusicMuted; 
   const btn = document.getElementById('musicBtn'); 
@@ -637,57 +663,87 @@ function toggleMusic() {
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); 
   } 
 }
-// 切换音源：原声 / 用户上传的音乐
-function updateMusicSrcBtn() {
-  const b = document.getElementById('musicSrcBtn');
-  if (!b) return;
-  if (musicMode === 'custom') {
-    b.textContent = '🎶 音源:我的'; b.style.background = '#ff9800'; b.style.boxShadow = '0 3px 0 #e65100';
+
+// 打开音源选择弹窗
+async function openMusicSelect() {
+  await loadBgmList();
+  const wrap = document.getElementById('musicListWrap');
+  wrap.innerHTML = '';
+
+  // 原声选项
+  const origDiv = document.createElement('div');
+  origDiv.className = 'music-list-item' + (currentMusicId === 'original' ? ' active' : '');
+  origDiv.innerHTML = `<span>🎵 原声 8-bit 音乐</span> ${currentMusicId === 'original' ? '<span>✅ 播放中</span>' : ''}`;
+  origDiv.onclick = () => selectMusic('original');
+  wrap.appendChild(origDiv);
+
+  // 自定义音乐列表
+  if (bgmList.length === 0) {
+    wrap.innerHTML += '<div style="color:#888; padding:20px;">你还没有上传过音乐，去答题开音乐宝箱吧！</div>';
   } else {
-    b.textContent = '🎶 音源:原声'; b.style.background = '#9c27b0'; b.style.boxShadow = '0 3px 0 #6a1b9a';
+    bgmList.forEach(b => {
+      const div = document.createElement('div');
+      div.className = 'music-list-item' + (currentMusicId === b.id ? ' active' : '');
+      div.innerHTML = `<span>🎶 ${b.name}</span> ${currentMusicId === b.id ? '<span>✅ 播放中</span>' : ''}`;
+      div.onclick = () => selectMusic(b.id);
+      wrap.appendChild(div);
+    });
   }
-}
-function switchMusicSource() {
-  if (musicMode === 'original') {
-    if (!window.__customBgm && !localStorage.getItem('pvz_custom_bgm')) {
-      return showToast('还没有上传音乐，请先用「音乐宝箱」上传～');
-    }
-    musicMode = 'custom';
-  } else {
-    musicMode = 'original';
-  }
-  localStorage.setItem('pvz_music_mode', musicMode);
-  updateMusicSrcBtn();
-  startMusic();
-  showToast(musicMode === 'custom' ? '已切换到你上传的音乐 🎶' : '已切换为原声音乐 🎵');
+  
+  document.getElementById('musicSelectModal').classList.add('active');
 }
 
-// ====== 自定义背景音乐：用 IndexedDB 存储（容量大，localStorage 放不下大体积 base64）======
-const BGM_DB_NAME = 'pvz_bgm_db', BGM_STORE = 'bgm';
+function selectMusic(id) {
+  currentMusicId = id;
+  localStorage.setItem('pvz_current_music', currentMusicId);
+  document.getElementById('musicSelectModal').classList.remove('active');
+  startMusic();
+  showToast(id === 'original' ? '已切换为原声音乐' : '已切换专属音源');
+}
+
+// ====== IndexedDB 多音频存储引擎 ======
+const BGM_DB_NAME = 'pvz_bgm_db_v2', BGM_STORE = 'bgms';
+
 function openBgmDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(BGM_DB_NAME, 1);
-    req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains(BGM_STORE)) req.result.createObjectStore(BGM_STORE); };
+    req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains(BGM_STORE)) req.result.createObjectStore(BGM_STORE, { keyPath: 'id' }); };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
-async function saveBgmDB(data) {
+
+async function saveBgmDB(id, name, data) {
   const db = await openBgmDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(BGM_STORE, 'readwrite');
-    tx.objectStore(BGM_STORE).put(data, 'custom');
+    tx.objectStore(BGM_STORE).put({ id, name, data });
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
-function loadBgmDB() {
-  return openBgmDB().then(db => new Promise(resolve => {
+
+async function getBgmDB(id) {
+  const db = await openBgmDB();
+  return new Promise((resolve) => {
     const tx = db.transaction(BGM_STORE, 'readonly');
-    const req = tx.objectStore(BGM_STORE).get('custom');
-    req.onsuccess = () => resolve(req.result || null);
+    const req = tx.objectStore(BGM_STORE).get(id);
+    req.onsuccess = () => resolve(req.result ? req.result.data : null);
     req.onerror = () => resolve(null);
-  })).catch(() => null);
+  });
+}
+
+async function loadBgmList() {
+  const db = await openBgmDB();
+  return new Promise((resolve) => {
+    const tx = db.transaction(BGM_STORE, 'readonly');
+    const req = tx.objectStore(BGM_STORE).getAll();
+    req.onsuccess = () => {
+      bgmList = req.result || [];
+      resolve(bgmList);
+    };
+    req.onerror = () => resolve([]);
+  });
 }
 
 // 基础配置
@@ -741,18 +797,9 @@ window.onload = async () => {
   registerCustomCharacters();
   try { await loadGlobalCustoms(); } catch (e) { console.warn('云端自定义角色加载失败，已跳过：', e); }
 
-  // 启动时加载音源选择 & 自定义背景音乐
-  musicMode = localStorage.getItem('pvz_music_mode') || 'original';
-  updateMusicSrcBtn();
-  loadBgmDB().then(d => {
-    if (d) { window.__customBgm = d; }
-    else {
-      const legacy = localStorage.getItem('pvz_custom_bgm');
-      if (legacy) { window.__customBgm = legacy; saveBgmDB(legacy).catch(() => {}); }
-    }
-    // 若选择的是自定义音源且数据已就绪，重新应用（修复刷新后仍是原声的加载时机问题）
-    if (musicMode === 'custom' && window.__customBgm && !isMusicMuted) startMusic();
-  });
+  await loadBgmList(); // 加载音乐列表
+  startMusic(); // 自动读取 currentMusicId 并播放
+
   const savedUser = localStorage.getItem('pvz_user');
   if (savedUser) {
     const user = JSON.parse(savedUser); state.name = user.name; state.class = user.class;
@@ -856,7 +903,7 @@ function updateSingle(dt) {
     for (let z of state.zombies) {
       if (z.row === b.row && b.x >= z.x && b.x <= z.x + 0.8) {
         z.hp -= b.dmg; if (b.freeze) z.slowTimer = 2.0; hit = true;
-        if (z.hp <= 0) { state.zombies = state.zombies.filter(z => z.id !== z.id); updateScore(10); }
+        if (z.hp <= 0) { state.zombies = state.zombies.filter(zz => zz.id !== z.id); updateScore(10); } 
         break;
       }
     }
@@ -932,7 +979,6 @@ lawn.onclick = (e) => {
 let currentQ = null, selectedOpts = new Set(), isAnswering = false, qPool = [];
 let quizStartTime = 0, quizModifyCount = 0;
 
-// 题目图片地址处理：base64 内嵌数据原样使用；普通路径则统一补 .png（容错重复后缀）
 function qImgSrc(p) {
   if (!p) return '';
   if (typeof p === 'string' && p.startsWith('data:')) return p;
@@ -950,7 +996,21 @@ function openQuiz() {
   
   $('quizQuestion').textContent = currentQ.q;
   const img = $('quizImage');
-  if (currentQ.image) { img.style.display = 'block'; img.src = qImgSrc(currentQ.image); img.onerror = function() { this.style.display = 'none'; }; } else { img.style.display = 'none'; }
+  
+  if (currentQ.image) { 
+    img.style.display = 'block'; 
+    const baseSrc = qImgSrc(currentQ.image).replace(/\.(png|jpe?g)$/i, '');
+    img.src = baseSrc + '.png'; 
+    img.onerror = function() { 
+      if (!this.src.endsWith('.jpg')) {
+        this.src = baseSrc + '.jpg';
+      } else {
+        this.style.display = 'none'; 
+      }
+    }; 
+  } else { 
+    img.style.display = 'none'; 
+  }
   
   const box = $('quizOptions'); box.innerHTML = '';
   currentQ.options.forEach((opt, i) => {
@@ -1044,7 +1104,11 @@ async function gameOver(isWin) {
   else {
     wrongArea.innerHTML = '<h4 style="margin:0 0 10px 0; color:#e53935;">本局错题回顾：</h4>';
     state.wrongQuestions.forEach((q, idx) => {
-      let imgHtml = ''; if (q.image) imgHtml = `<img src="${qImgSrc(q.image)}">`;
+      let imgHtml = ''; 
+      if (q.image) {
+        const baseSrc = qImgSrc(q.image).replace(/\.(png|jpe?g)$/i, '');
+        imgHtml = `<img src="${baseSrc}.png" onerror="if(!this.src.endsWith('.jpg')){this.src='${baseSrc}.jpg';}else{this.style.display='none';}">`;
+      }
       wrongArea.innerHTML += `<div class="wrong-q-item"><div class="wrong-q-title">${idx + 1}. ${q.q}</div>${imgHtml}<div style="color:#4caf50; font-weight:bold;">正确答案：${q.answer.map(i => String.fromCharCode(65 + i)).join('')}</div></div>`;
     });
   }
@@ -1058,7 +1122,6 @@ async function gameOver(isWin) {
   }
 }
 
-// 排行榜等其余逻辑
 function openFeedback() { let chances = parseInt(localStorage.getItem('pvz_feedback_chances') || '0'); if (chances <= 0) return showToast('没有写纸条的次数了！'); $('feedbackContent').value = ''; $('feedbackModal').classList.add('active'); }
 async function submitFeedback() {
   const content = $('feedbackContent').value.trim(); if (!content) return showToast('请写点什么！'); let chances = parseInt(localStorage.getItem('pvz_feedback_chances') || '0'); if (chances <= 0) return showToast('次数不足！');
@@ -1113,14 +1176,23 @@ async function renderAuditList() {
   listEl.innerHTML = '';
   data.forEach(d => {
     const div = document.createElement('div'); div.style.cssText = 'border:1px solid #ccc; padding:15px; border-radius:10px; background:#fff; width:200px; text-align:center;';
+    let statusHtml = '';
+    if (d.status === 'pending') {
+      statusHtml = `<button onclick="approveChar(${d.id})" style="background:#4caf50; color:#fff; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; margin-right:5px;">审核通过</button>`;
+    } else if (d.status === 'approved') {
+      statusHtml = `<span style="color:#4caf50; font-weight:bold; margin-right:10px;">已通过</span>`;
+    } else {
+      statusHtml = `<span style="color:#e53935; font-weight:bold; margin-right:10px;">已撤回</span>`;
+    }
+    
     div.innerHTML = `
       <img src="${d.img_base64}" style="width:64px; height:64px; image-rendering:pixelated; border-radius:8px; margin-bottom:10px;">
       <div style="font-weight:bold; font-size:16px; margin-bottom:5px;">${d.name}</div>
       <div style="font-size:12px; color:#666;">作者: ${d.creator_name}</div>
       <div style="font-size:12px; color:#666; margin-bottom:10px;">类型: ${d.char_type.includes('plant') ? '植物' : '僵尸'}</div>
       <div style="font-size:12px; color:#e53935;">速度: ${d.attr_speed} | 血量: ${d.attr_hp}</div>
-      <div style="margin-top:10px;">
-        ${d.status === 'pending' ? `<button onclick="approveChar(${d.id})" style="background:#4caf50; color:#fff; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; margin-right:5px;">审核通过</button>` : `<span style="color:#4caf50; font-weight:bold;">已通过</span>`}
+      <div style="margin-top:10px; display:flex; justify-content:center; align-items:center;">
+        ${statusHtml}
         <button onclick="revokeChar(${d.id})" style="background:#e53935; color:#fff; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">撤回</button>
       </div>`;
     listEl.appendChild(div);
@@ -1145,22 +1217,57 @@ function renderPPTList() {
     listEl.appendChild(div);
   });
 }
+
+// PPT 导出加入图片支持
 function exportToPPT() {
   if (validPptQuestions.length === 0) return showToast('没有可导出的题目！');
   const checkboxes = document.querySelectorAll('.ppt-checkbox:checked');
   if (checkboxes.length === 0) return showToast('请至少勾选一道题目！');
   const pptx = new PptxGenJS(); pptx.layout = 'LAYOUT_16x9';
+  
   checkboxes.forEach(cb => {
-    const qData = validPptQuestions[cb.value]; const slide = pptx.addSlide();
+    const qData = validPptQuestions[cb.value]; 
+    const slide = pptx.addSlide();
+    
     slide.addText("重点错题讲解", { x: 0.5, y: 0.2, w: 9, h: 0.5, fontSize: 24, bold: true, color: "e53935" });
-    slide.addText(`题目：${qData.question}`, { x: 0.5, y: 1.0, w: 9, h: 1.5, fontSize: 18, color: "333333", wrap: true });
+    
+    let textY = 1.0;
+    let optsY = 2.8;
+    
+    // 尝试查找匹配的题目图片
+    let qImage = null;
+    const allQs = [...QUESTIONS_L1, ...QUESTIONS_L2];
+    const matchQ = allQs.find(q => q.q === qData.question);
+    if (matchQ && matchQ.image) {
+        // 生成完整 URL，确保 PptxGenJS 能直接下载（需要绝对路径）
+        const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '');
+        qImage = baseUrl + qImgSrc(matchQ.image);
+    }
+
+    if (qImage) {
+        slide.addText(`题目：${qData.question}`, { x: 0.5, y: textY, w: 4.5, h: 1.5, fontSize: 16, color: "333333", wrap: true });
+        // 插入图片在右侧
+        slide.addImage({ path: qImage, x: 5.0, y: 1.0, w: 4.5, h: 2.5 });
+        optsY = 2.8;
+    } else {
+        slide.addText(`题目：${qData.question}`, { x: 0.5, y: textY, w: 9, h: 1.5, fontSize: 18, color: "333333", wrap: true });
+    }
+    
     const optsArr = qData.options.split(' | '); let optText = "";
     optsArr.forEach((opt, i) => { optText += `${String.fromCharCode(65 + i)}. ${opt}\n`; });
-    slide.addText(optText, { x: 0.5, y: 2.8, w: 9, h: 2.0, fontSize: 16, color: "555555" });
+    
+    if(qImage){
+        // 选项文字宽度缩小，避开图片
+        slide.addText(optText, { x: 0.5, y: optsY, w: 4.5, h: 2.0, fontSize: 14, color: "555555" });
+    } else {
+        slide.addText(optText, { x: 0.5, y: optsY, w: 9, h: 2.0, fontSize: 16, color: "555555" });
+    }
+    
     slide.addText(`正确答案：${qData.correct}`, { x: 0.5, y: 5.0, w: 9, h: 0.5, fontSize: 20, bold: true, color: "4caf50" });
     slide.addText(`⚠️ 该题全班累计做错 ${qData.count} 次，请重点分析！`, { x: 0.5, y: 5.5, w: 9, h: 0.5, fontSize: 16, color: "e53935" });
     slide.addText("讲解思路：（老师在此补充）", { x: 0.5, y: 6.0, w: 9, h: 0.5, fontSize: 14, color: "999999", italic: true });
   });
+  
   pptx.writeFile({ fileName: "物理错题讲解_自动生成.pptx" });
 }
 </script>
