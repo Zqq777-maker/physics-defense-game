@@ -185,7 +185,7 @@ function updatePK(dt) {
 let pkQPool = [];
 function openPKQuiz() {
   if (!state.isPlaying) return showToast('游戏未开始');
-  const allQs = [...QUESTIONS_L1, ...QUESTIONS_L2];
+   const allQs = [...QUESTIONS_L1, ...QUESTIONS_L2, ...QUESTIONS_L3];
   if (pkQPool.length === 0) pkQPool = allQs.map((_, i) => i).sort(() => Math.random() - 0.5);
   currentQ = allQs[pkQPool.pop()];
   selectedOpts.clear(); isAnswering = false; quizStartTime = Date.now(); quizModifyCount = 0;
