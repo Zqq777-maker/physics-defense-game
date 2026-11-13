@@ -156,6 +156,7 @@
     <h2>选择模式</h2>
     <button class="login-btn level-btn" onclick="startGame(1)">单机：第一关</button>
     <button class="login-btn level-btn" style="background:#ff9800; box-shadow:0 4px 0 #e65100;" onclick="startGame(2)">单机：第二关</button>
+    <button class="login-btn level-btn" style="background:#e91e63; box-shadow:0 4px 0 #ad1457;" onclick="startGame(3)">单机：第三关</button>
     <button class="login-btn pk-btn" onclick="showPKMenu()">⚔️ 双人实时PK</button>
   </div>
 </div>
@@ -828,7 +829,7 @@ function startGame(level) {
   $('levelSelectScreen').style.display = 'none'; $('gameScreen').classList.add('active');
   $('singleTopBar').style.display = 'flex'; $('pkTopBar').style.display = 'none'; $('sideBar').style.display = 'block';
   $('uiName').textContent = state.name;
-  if (level === 2) $('feedbackBtn').style.display = 'inline-block';
+    if (level >= 2) $('feedbackBtn').style.display = 'inline-block';
   
 
   dbClient.rpc('get_top_scores', { p_limit: 1000, p_offset: 0 }).then(({data}) => {
@@ -985,11 +986,17 @@ function qImgSrc(p) {
 
 function openQuiz() {
   if (state.mode === 'single') state.isPlaying = false; 
+   const levelData = {
+    1: QUESTIONS_L1,
+    2: QUESTIONS_L2,
+    3: QUESTIONS_L3
+  };
+  const currentQuestions = levelData[state.level] || QUESTIONS_L1;
+
   if (qPool.length === 0) {
-    const qs = state.level === 1 ? QUESTIONS_L1 : QUESTIONS_L2;
-    qPool = qs.map((_, i) => i).sort(() => Math.random() - 0.5);
+    qPool = currentQuestions.map((_, i) => i).sort(() => Math.random() - 0.5);
   }
-  currentQ = (state.level === 1 ? QUESTIONS_L1 : QUESTIONS_L2)[qPool.pop()];
+  currentQ = currentQuestions[qPool.pop()];
   selectedOpts.clear(); isAnswering = false; quizStartTime = Date.now(); quizModifyCount = 0;
   
   $('quizQuestion').textContent = currentQ.q;
@@ -1093,6 +1100,9 @@ async function gameOver(isWin) {
       let chances = parseInt(localStorage.getItem('pvz_feedback_chances') || '0');
       chances++; localStorage.setItem('pvz_feedback_chances', chances); $('feedbackChances').textContent = chances;
       notice.innerHTML += `🎁 通关第二关！获得 1 次【📝 写小纸条】机会！<br>`;
+    }
+      } else if (state.level === 3) {
+      notice.innerHTML += `🏆 恭喜通关第三关！<br>`;
     }
        // ====== 正式版：按概率掉落宝箱 ======
     if (state.totalWrong === 0) {
